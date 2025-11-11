@@ -10,6 +10,8 @@ const appSchema = z.object({
     .enum(["development", "production", "test"])
     .default("development"),
   PORT: z.coerce.number().default(5000),
+  SIGN_IN_URL: z.string().min(1, "SIGN_IN_URL is required"),
+  SIGN_UP_URL: z.string().min(1, "SIGN_UP_URL is required"),
 });
 
 const authSchema = z.object({
@@ -31,12 +33,14 @@ const parseEnv = () => {
       app: {
         NODE_ENV: process.env.NODE_ENV,
         PORT: process.env.PORT,
+        SIGN_IN_URL: process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL,
+        SIGN_UP_URL: process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL,
       },
       db: {
         MONGO_URI: process.env.MONGO_URI,
       },
       auth: {
-        CLERK_PUBLISHABLE_KEY: process.env.CLERK_PUBLISHABLE_KEY,
+        CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
         CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY,
       },
     };

@@ -153,10 +153,40 @@
 //   );
 // }
 
-import React from "react";
+// import React from "react";
 
-const page = () => {
-  return <div>page</div>;
-};
+// const page = () => {
+//   return (
+//     <div className="bg-primary h-11 w-3xl">
+//       <h1 className="text-primary">dashboard page</h1>
+//     </div>
+//   )
+// };
 
-export default page;
+// export default page;
+import { ThemeSwitcher } from '@/components/theme-switcher/index'
+
+export default function Home() {
+  return (
+    <main className="min-h-screen bg-background">
+      <div className="container mx-auto p-8">
+        {/* Use text-primary for the color */}
+        <h1 className="text-4xl font-bold text-primary mb-4">
+          AI Todo List
+        </h1>
+        
+        <ThemeSwitcher />
+        
+        <div className="mt-8 bg-surface border border-border rounded-lg p-6">
+          <h2 className="text-2xl font-semibold text-primary mb-4">
+            Your Tasks
+          </h2>
+          {/* Use text-secondary for secondary text */}
+          <p className="text-text-secondary">
+            Start adding tasks and let AI create intelligent subtasks for you!
+          </p>
+        </div>
+      </div>
+    </main>
+  )
+}
