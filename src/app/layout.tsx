@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
+import { env } from "@/config/env";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,7 +25,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      appearance={{ variables: { fontFamily: "'Inter', sans-serif" } }}
+      publishableKey={env.auth.CLERK_PUBLISHABLE_KEY}
+    >
       <html lang="en">
         <body className={`${geistSans.variable} ${geistMono.variable}`}>
           {children}
