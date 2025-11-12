@@ -1,15 +1,15 @@
-"use client";
-
+"use client"
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Sparkles, ArrowRight, Brain, Zap, CalendarCheck } from "lucide-react";
+import { SignOutButton, UserButton } from "@clerk/nextjs";
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0f0f0f] via-[#1a1a1a] to-[#000] text-white overflow-hidden relative">
       {/* Floating Background Lights */}
       <div className="absolute inset-0">
-        <div className="absolute top-20 left-10 w-96 h-96 bg-[#E8A476] opacity-10 blur-3xl rounded-full animate-pulse"></div>
+        <div className="absolute top-20 left-10 w-96 h-96 bg-primary opacity-10 blur-3xl rounded-full animate-pulse"></div>
         <div className="absolute bottom-20 right-10 w-96 h-96 bg-[#7B7B7B] opacity-10 blur-3xl rounded-full animate-pulse delay-2000"></div>
       </div>
 
@@ -20,7 +20,9 @@ export default function Home() {
           animate={{ opacity: 1, y: 0 }}
           className="text-3xl font-bold tracking-tight"
         >
+          <Link href={'/'}>
           Task<span className="text-[#E8A476]">Genie</span>
+          </Link>
         </motion.h1>
 
         <div className="flex gap-6 text-lg">
@@ -33,6 +35,10 @@ export default function Home() {
           <Link href="#contact" className="hover:text-[#E8A476] transition">
             Contact
           </Link>
+
+          {/* // ! this is for user sign out testing */}
+            <UserButton /> 
+          {/* <SignOutButton /> */}
         </div>
       </nav>
 
