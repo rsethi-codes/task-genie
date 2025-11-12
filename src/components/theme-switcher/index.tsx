@@ -2,43 +2,39 @@
 
 import { useTheme } from 'next-themes'
 import { useEffect, useState } from 'react'
+import { Moon, Sun } from 'lucide-react'
 
 export function ThemeSwitcher() {
-  const { theme, setTheme, themes } = useTheme()
+  const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
-  // Only render after component mounts on client
   useEffect(() => {
     const id = setTimeout(() => setMounted(true), 0)
     return () => clearTimeout(id)
   }, [])
 
   if (!mounted) {
-    return null // Don't render anything on server
-  }
-
-  const themeLabels: Record<string, string> = {
-    light: '☀️ Light',
-    dark: '🌙 Dark',
-    productivity: '⚡ Productivity',
-    calm: '🧘 Calm',
+    return null
   }
 
   return (
-    <div className="flex gap-2 p-4 flex-wrap">
-      {themes.map((t) => (
-        <button
-          key={t}
-          onClick={() => setTheme(t)}
-          className={`px-4 py-2 rounded-lg transition-all font-medium ${
-            theme === t
-              ? 'bg-primary text-white shadow-lg'
-              : 'bg-surface hover:bg-surface-hover text-text-primary border border-border'
-          }`}
-        >
-          {themeLabels[t] || t}
-        </button>
-      ))}
-    </div>
+    <button
+      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+      className="flex items-center gap-2 px-4 py-2 rounded-[--radius-apple-md] bg-surface hover:bg-surface-hover 
+                 border border-border text-text-primary transition-all shadow-md"
+      aria-label="Toggle theme"
+    >
+      {theme === 'dark' ? (
+        <>
+          <Sun className="w-5 h-5" />
+          <span className="font-medium">Light</span>
+        </>
+      ) : (
+        <>
+          <Moon className="w-5 h-5" />
+          <span className="font-medium">Dark</span>
+        </>
+      )}
+    </button>
   )
 }

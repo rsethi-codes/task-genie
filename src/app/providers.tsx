@@ -8,7 +8,7 @@ export function Providers({ children }: { children: ReactNode }) {
     <ThemeProvider
       attribute="class"
       defaultTheme="light"
-      themes={['light', 'dark', 'productivity', 'calm']}
+      themes={['light', 'dark']}
       enableSystem={false}
       disableTransitionOnChange={false}
       storageKey="task-genie-theme"

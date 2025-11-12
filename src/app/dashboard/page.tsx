@@ -164,29 +164,91 @@
 // };
 
 // export default page;
+// import { ThemeSwitcher } from '@/components/theme-switcher/index'
+
+// export default function Dashboard() {
+//   return (
+//     <div className="min-h-screen bg-background p-8">
+//       <div className="max-w-6xl mx-auto">
+//         {/* Header */}
+//         <div className="flex items-center justify-between mb-8">
+//           <h1 className="text-4xl font-bold text-primary">Dashboard</h1>
+//           <ThemeSwitcher />
+//         </div>
+
+//         {/* Test Card */}
+//         <div className="bg-surface border border-border rounded-[--radius-apple-lg] p-6 shadow-lg">
+//           <h2 className="text-2xl font-semibold text-text-primary mb-2">
+//             Welcome to Task Genie
+//           </h2>
+//           <p className="text-text-secondary">
+//             Your AI-powered todo list is ready!
+//           </p>
+          
+//           <button className="mt-4 bg-primary hover:bg-primary-hover text-white px-6 py-2 rounded-[--radius-apple-md] font-medium transition-colors">
+//             Add Task
+//           </button>
+//         </div>
+
+//         {/* Status Cards */}
+//         <div className="grid grid-cols-3 gap-4 mt-8">
+//           <div className="bg-surface border border-border rounded-[--radius-apple-md] p-4">
+//             <p className="text-text-secondary text-sm mb-1">Completed</p>
+//             <p className="text-3xl font-bold text-success">12</p>
+//           </div>
+//           <div className="bg-surface border border-border rounded-[--radius-apple-md] p-4">
+//             <p className="text-text-secondary text-sm mb-1">In Progress</p>
+//             <p className="text-3xl font-bold text-warning">5</p>
+//           </div>
+//           <div className="bg-surface border border-border rounded-[--radius-apple-md] p-4">
+//             <p className="text-text-secondary text-sm mb-1">Total</p>
+//             <p className="text-3xl font-bold text-primary">17</p>
+//           </div>
+//         </div>
+//       </div>
+//     </div>
+//   )
+// }
+
 import { ThemeSwitcher } from '@/components/theme-switcher/index'
 
-export default function Home() {
+export default function Dashboard() {
   return (
-    <main className="min-h-screen bg-background">
-      <div className="container mx-auto p-8">
-        {/* Use text-primary for the color */}
-        <h1 className="text-4xl font-bold text-primary mb-4">
-          AI Todo List
-        </h1>
-        
-        <ThemeSwitcher />
-        
-        <div className="mt-8 bg-surface border border-border rounded-lg p-6">
-          <h2 className="text-2xl font-semibold text-primary mb-4">
-            Your Tasks
+    <div className="min-h-screen bg-background p-8">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-4xl font-bold text-primary">Dashboard</h1>
+          <ThemeSwitcher />
+        </div>
+
+        <div className="bg-surface border border-border rounded-xl p-6 shadow-lg">
+          <h2 className="text-2xl font-semibold text-text-primary mb-2">
+            Welcome to Task Genie
           </h2>
-          {/* Use text-secondary for secondary text */}
           <p className="text-text-secondary">
-            Start adding tasks and let AI create intelligent subtasks for you!
+            Your AI-powered todo list is ready!
           </p>
+          
+          <button className="mt-4 bg-primary hover:bg-primary-hover text-white px-6 py-2 rounded-lg font-medium transition-colors">
+            Add Task
+          </button>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4 mt-8">
+          <div className="bg-surface border border-border rounded-lg p-4">
+            <p className="text-text-secondary text-sm mb-1">Completed</p>
+            <p className="text-3xl font-bold text-success">12</p>
+          </div>
+          <div className="bg-surface border border-border rounded-lg p-4">
+            <p className="text-text-secondary text-sm mb-1">In Progress</p>
+            <p className="text-3xl font-bold text-warning">5</p>
+          </div>
+          <div className="bg-surface border border-border rounded-lg p-4">
+            <p className="text-text-secondary text-sm mb-1">Total</p>
+            <p className="text-3xl font-bold text-primary">17</p>
+          </div>
         </div>
       </div>
-    </main>
+    </div>
   )
 }

@@ -1,74 +1,65 @@
 @import "tailwindcss";
 
-@layer base {
-  :root {
-    --background: 255 255 255;
-    --surface: 248 249 250;
-    --surface-hover: 241 243 245;
-    --border: 233 236 239;
-    --text-primary: 33 37 41;
-    --text-secondary: 73 80 87;
-    --text-tertiary: 134 142 150;
-    --primary: 76 110 245;
-    --primary-hover: 66 99 235;
-    --success: 81 207 102;
-    --warning: 252 196 25;
-    --danger: 255 107 107;
-  }
+@theme {
+  --color-background: #F9FAFB;
+  --color-surface: #FFFFFF;
+  --color-surface-hover: #F3F4F6;
+  --color-border: #E5E7EB;
+  --color-text-primary: #111827;
+  --color-text-secondary: #6B7280;
+  --color-text-tertiary: #9CA3AF;
+  --color-primary: #007AFF;
+  --color-primary-hover: #005FCC;
+  --color-success: #34C759;
+  --color-warning: #FF9500;
+  --color-danger: #FF3B30;
+}
 
+@layer theme {
   .dark {
-    --background: 15 20 25;
-    --surface: 26 31 38;
-    --surface-hover: 36 41 48;
-    --border: 47 54 64;
-    --text-primary: 232 234 237;
-    --text-secondary: 184 186 191;
-    --text-tertiary: 139 141 145;
-    --primary: 107 138 255;
-    --primary-hover: 90 122 255;
-    --success: 105 219 124;
-    --warning: 255 212 59;
-    --danger: 255 135 135;
-  }
-
-  .productivity {
-    --background: 255 249 245;
-    --surface: 255 243 233;
-    --surface-hover: 255 237 213;
-    --border: 255 228 204;
-    --text-primary: 26 26 26;
-    --text-secondary: 74 74 74;
-    --text-tertiary: 122 122 122;
-    --primary: 247 107 21;
-    --primary-hover: 229 94 13;
-    --success: 20 184 166;
-    --warning: 245 158 11;
-    --danger: 239 68 68;
-  }
-
-  .calm {
-    --background: 245 249 250;
-    --surface: 232 244 248;
-    --surface-hover: 217 237 244;
-    --border: 196 225 234;
-    --text-primary: 30 58 74;
-    --text-secondary: 69 101 115;
-    --text-tertiary: 107 136 152;
-    --primary: 8 145 178;
-    --primary-hover: 14 116 144;
-    --success: 5 150 105;
-    --warning: 217 119 6;
-    --danger: 220 38 38;
-  }
-
-  body {
-    background: rgb(var(--background));
-    color: rgb(var(--text-primary));
+    --color-background: #000000;
+    --color-surface: #1C1C1E;
+    --color-surface-hover: #2C2C2E;
+    --color-border: #3A3A3C;
+    --color-text-primary: #FFFFFF;
+    --color-text-secondary: #98989D;
+    --color-text-tertiary: #636366;
+    --color-primary: #0A84FF;
+    --color-primary-hover: #007AFF;
+    --color-success: #30D158;
+    --color-warning: #FF9F0A;
+    --color-danger: #FF453A;
   }
 }
 
-/* Keep your existing theme inline for Geist fonts */
-@theme inline {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@layer utilities {
+  .bg-background { background-color: var(--color-background); }
+  .bg-surface { background-color: var(--color-surface); }
+  .bg-surface-hover { background-color: var(--color-surface-hover); }
+  .bg-primary { background-color: var(--color-primary); }
+  .bg-primary-hover { background-color: var(--color-primary-hover); }
+  .bg-success { background-color: var(--color-success); }
+  .bg-warning { background-color: var(--color-warning); }
+  .bg-danger { background-color: var(--color-danger); }
+  
+  .text-text-primary { color: var(--color-text-primary); }
+  .text-text-secondary { color: var(--color-text-secondary); }
+  .text-text-tertiary { color: var(--color-text-tertiary); }
+  .text-primary { color: var(--color-primary); }
+  .text-success { color: var(--color-success); }
+  .text-warning { color: var(--color-warning); }
+  .text-danger { color: var(--color-danger); }
+  
+  .border-border { border-color: var(--color-border); }
+  
+  .hover\:bg-surface-hover:hover { background-color: var(--color-surface-hover); }
+  .hover\:bg-primary-hover:hover { background-color: var(--color-primary-hover); }
+}
+
+@layer base {
+  body {
+    background-color: var(--color-background);
+    color: var(--color-text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', sans-serif;
+  }
 }
