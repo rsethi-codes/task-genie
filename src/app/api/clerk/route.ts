@@ -1,3 +1,4 @@
+import { signUpUser } from "@/api/user/create";
 import { env } from "@/config/env";
 import { WebhookEvent } from "@clerk/nextjs/server";
 import { Webhook } from "svix";
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
   (async () => {
     switch (event.type) {
       case "user.created":
+        signUpUser();
         console.log("✅ Clerk user created:", event.data.id);
         break;
       case "user.deleted":
