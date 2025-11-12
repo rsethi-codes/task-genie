@@ -27,6 +27,12 @@ interface HandleApiErrorOptions {
   toastType?: "success" | "error" | "warning" | "info";
 }
 
+interface ErrorResponse {
+  response?: {
+    status: number;
+  };
+}
+
 export function handleApiError(
   error: unknown,
   options?: HandleApiErrorOptions
@@ -64,7 +70,7 @@ export function handleApiError(
     apiError,
     toastInfo: {
       show: showToast,
-      message: getFriendlyErrorMessage(apiError, customMessage),
+      message: customMessage || getFriendlyErrorMessage(apiError),
       type: finalToastType,
     },
   };
@@ -72,7 +78,7 @@ export function handleApiError(
 
 function classifyError(error: unknown): ApiError {
   if (error && typeof error === "object" && "response" in error) {
-    const status = (error as any).response?.status;
+    const status = (error as ErrorResponse).response?.status;
 
     if (status === 401 || status === 403) {
       return {
@@ -90,7 +96,7 @@ function classifyError(error: unknown): ApiError {
         originalError: error,
       };
     }
-    if (status >= 500) {
+    if (status && status >= 500) {
       return {
         type: ErrorType.SERVER,
         message: "Server error occurred",
