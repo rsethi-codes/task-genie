@@ -41,5 +41,4 @@ export default function RootLayout({
 
 // TODO - onboarding screens with react hook forms
 // TODO - add dashboard
-// TODO - configure project themes with the app color schemes
 // TODO - create components

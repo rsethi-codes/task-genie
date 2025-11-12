@@ -36,7 +36,7 @@ export default function Home() {
             Contact
           </Link>
 
-          {/* // ! this is for user sign out testing */}
+          {/*  // * this is for user sign out testing */}
             <UserButton /> 
           {/* <SignOutButton /> */}
         </div>
