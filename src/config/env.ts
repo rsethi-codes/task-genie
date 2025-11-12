@@ -14,14 +14,22 @@ const appSchema = z.object({
   SIGN_UP_URL: z.string().min(1, "SIGN_UP_URL is required"),
 });
 
+const apiSchema = z.object({
+  BASE_API_URL: z.string().min(1, "BASE_API_URL is required"),
+});
+
 const authSchema = z.object({
   CLERK_PUBLISHABLE_KEY: z.string().min(1, "CLERK_PUBLISHABLE_KEY is required"),
   CLERK_SECRET_KEY: z.string().min(1, "CLERK_SECRET_KEY is required"),
+  CLERK_WEBHOOK_SIGNING_SECRET: z
+    .string()
+    .min(1, "CLERK_WEBHOOK_SIGNING_SECRET is required"),
 });
 
 // 🧠 Combine all schemas
 const envSchema = z.object({
   app: appSchema,
+  api: apiSchema,
   auth: authSchema,
 });
 
@@ -36,12 +44,13 @@ const parseEnv = () => {
         SIGN_IN_URL: process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL,
         SIGN_UP_URL: process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL,
       },
-      db: {
-        MONGO_URI: process.env.MONGO_URI,
+      api: {
+        BASE_API_URL: process.env.NEXT_PUBLIC_BASE_API_URL,
       },
       auth: {
         CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
         CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY,
+        CLERK_WEBHOOK_SIGNING_SECRET: process.env.CLERK_WEBHOOK_SIGNING_SECRET,
       },
     };
 
