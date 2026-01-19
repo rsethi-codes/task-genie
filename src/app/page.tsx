@@ -155,6 +155,89 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Philosophy Section */}
+      <section id="philosophy" className="py-40 relative z-10 px-6 border-t border-border/50">
+        <div className="max-w-4xl mx-auto text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <h2 className="text-4xl md:text-6xl font-display font-bold mb-8">
+              Built on <span className="text-primary italic">Intention</span>
+            </h2>
+            <p className="text-text-secondary text-xl leading-relaxed mb-12 max-w-2xl mx-auto">
+              TaskGenie isn&apos;t about doing more. It&apos;s about doing what matters, when it matters, with clarity and purpose. We believe productivity tools should amplify your thinking, not complicate it.
+            </p>
+            <div className="grid md:grid-cols-2 gap-8 text-left mt-16">
+              <div className="p-8 rounded-2xl glass border border-border/50">
+                <h3 className="text-xl font-bold mb-4">Mindful by Design</h3>
+                <p className="text-text-secondary leading-relaxed">
+                  Every interaction is crafted to reduce cognitive load. Less noise, more signal. Less friction, more flow.
+                </p>
+              </div>
+              <div className="p-8 rounded-2xl glass border border-border/50">
+                <h3 className="text-xl font-bold mb-4">AI as Partner</h3>
+                <p className="text-text-secondary leading-relaxed">
+                  Technology should enhance human capability, not replace it. Genie suggests, you decide. Always.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Showcase Section */}
+      <section id="showcase" className="py-40 relative z-10 px-6">
+        <div className="max-w-7xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-24"
+          >
+            <h2 className="text-4xl md:text-6xl font-display font-bold mb-6">
+              See It In <span className="text-primary italic">Action</span>
+            </h2>
+            <p className="text-text-secondary text-xl max-w-2xl mx-auto">
+              Experience the difference that thoughtful design makes.
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-2 gap-8">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="p-10 rounded-[2rem] glass border border-border hover:border-primary/30 transition-all"
+            >
+              <h3 className="text-2xl font-bold mb-4">Intelligent Decomposition</h3>
+              <p className="text-text-secondary leading-relaxed mb-6">
+                Watch as Genie breaks down complex goals into actionable steps, learning your patterns and preferences along the way.
+              </p>
+              <div className="h-32 bg-surface-hover rounded-xl animate-pulse" />
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="p-10 rounded-[2rem] glass border border-border hover:border-primary/30 transition-all"
+            >
+              <h3 className="text-2xl font-bold mb-4">Contextual Awareness</h3>
+              <p className="text-text-secondary leading-relaxed mb-6">
+                Genie adapts to your energy levels, schedule, and work patterns, suggesting the right task at the right time.
+              </p>
+              <div className="h-32 bg-surface-hover rounded-xl animate-pulse" />
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="py-20 border-t border-border relative z-10 px-6">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-10">

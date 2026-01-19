@@ -156,6 +156,13 @@
   .text-glow {
     text-shadow: 0 0 10px rgba(var(--primary), 0.5);
   }
+
+  .ai-text-gradient {
+    background: linear-gradient(135deg, rgb(var(--ai-gradient-start)), rgb(var(--ai-gradient-end)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
 }
 
 @layer base {
