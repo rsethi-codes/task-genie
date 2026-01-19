@@ -16,6 +16,7 @@ const appSchema = z.object({
 
 const apiSchema = z.object({
   BASE_API_URL: z.string().min(1, "BASE_API_URL is required"),
+  GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
 });
 
 const authSchema = z.object({
@@ -46,6 +47,7 @@ const parseEnv = () => {
       },
       api: {
         BASE_API_URL: process.env.NEXT_PUBLIC_BASE_API_URL,
+        GEMINI_API_KEY: process.env.GEMINI_API_KEY,
       },
       auth: {
         CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,

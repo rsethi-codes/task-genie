@@ -12,6 +12,7 @@
   "dependencies": {
     "@clerk/nextjs": "^6.34.1",
     "@clerk/themes": "^2.4.48",
+    "@google/generative-ai": "^0.24.1",
     "axios": "^1.13.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, Variants } from "framer-motion";
 import DashboardLayout from "@/components/dashboard/layout";
 import { Card, Button } from "@/components/ui/core";
 import {
@@ -80,7 +80,7 @@ export default function Dashboard() {
   const activeTasks = tasks.filter(t => !t.completed);
   const hasTasks = tasks.length > 0;
 
-  const container = {
+  const container: Variants = {
     hidden: { opacity: 0 },
     show: {
       opacity: 1,
@@ -91,9 +91,9 @@ export default function Dashboard() {
     },
   };
 
-  const item = {
+  const item: Variants = {
     hidden: { opacity: 0, y: 12 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.25, 0.1, 0.25, 1] } },
+    show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } },
   };
 
   return (
@@ -127,14 +127,14 @@ export default function Dashboard() {
               <div className="absolute top-0 right-0 p-8 opacity-[0.06] group-hover:opacity-[0.08] transition-opacity duration-500 pointer-events-none">
                 <Brain size={120} className="text-primary" />
               </div>
-              
+
               <div className="relative z-10 space-y-6">
                 {/* Label - Subtle */}
                 <div className="flex items-center gap-2">
                   <Sparkles className="text-primary w-4 h-4" />
                   <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-primary/80">AI Strategy</span>
                 </div>
-                
+
                 {/* Content */}
                 <div className="space-y-4 max-w-lg">
                   <h3 className="text-2xl font-bold leading-tight">Morning window is prime for deep work</h3>
@@ -143,7 +143,7 @@ export default function Dashboard() {
                   </p>
                 </div>
               </div>
-              
+
               {/* Primary action - More prominent */}
               <div className="relative z-10 mt-8">
                 <Button variant="ai" size="lg" className="w-full md:w-auto shadow-lg">
@@ -163,7 +163,7 @@ export default function Dashboard() {
                   <Zap className="text-warning w-4 h-4" />
                   <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-text-secondary">Energy</span>
                 </div>
-                
+
                 {/* Energy level */}
                 <div className="space-y-3">
                   <div className="flex justify-between items-baseline">
@@ -181,7 +181,7 @@ export default function Dashboard() {
                   <p className="text-xs text-text-secondary/80 leading-relaxed">High focus potential for the next 2 hours</p>
                 </div>
               </div>
-              
+
               {/* Break timer - Subtle */}
               <div className="mt-8 pt-6 border-t border-border/40">
                 <div className="flex items-center gap-2 text-text-secondary">
@@ -269,7 +269,7 @@ export default function Dashboard() {
               </div>
             </div>
           </Card>
-          
+
           <Card className="p-6 border-border/60 bg-surface/30">
             <div className="flex gap-5 items-center">
               <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
@@ -289,14 +289,14 @@ export default function Dashboard() {
   );
 }
 
-function TaskItem({ 
-  title, 
-  category, 
-  time, 
-  priority, 
-  completed, 
+function TaskItem({
+  title,
+  category,
+  time,
+  priority,
+  completed,
   aiSuggested,
-  delay = 0 
+  delay = 0
 }: {
   title: string;
   category: string;
@@ -320,25 +320,25 @@ function TaskItem({
       whileHover={{ x: 2 }}
       className={cn(
         "group flex items-center justify-between p-5 rounded-xl border transition-all duration-200",
-        completed 
-          ? "bg-surface/40 border-border/60 opacity-70" 
+        completed
+          ? "bg-surface/40 border-border/60 opacity-70"
           : "bg-surface border-border/60 hover:border-primary/40 hover:shadow-sm"
       )}
     >
       <div className="flex items-center gap-4 min-w-0 flex-1">
         {/* Checkbox - Primary interaction */}
-        <button 
+        <button
           className={cn(
             "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0",
-            completed 
-              ? "bg-success border-success text-white" 
+            completed
+              ? "bg-success border-success text-white"
               : "border-border hover:border-primary group-hover:scale-105"
           )}
           aria-label={completed ? `Mark "${title}" as incomplete` : `Mark "${title}" as complete`}
         >
           {completed && <CheckCircle2 size={12} />}
         </button>
-        
+
         {/* Task content */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-1.5">
@@ -366,16 +366,16 @@ function TaskItem({
 
       {/* Priority indicator and details - Subtle */}
       <div className="flex items-center gap-3 ml-4 shrink-0">
-        <div 
+        <div
           className={cn(
             "w-1.5 h-1.5 rounded-full",
             priorityColors[priority]
-          )} 
+          )}
           aria-label={`Priority: ${priority}`}
         />
-        <Button 
-          variant="ghost" 
-          size="sm" 
+        <Button
+          variant="ghost"
+          size="sm"
           className="opacity-0 group-hover:opacity-60 hover:opacity-100 transition-opacity text-xs px-2"
         >
           Details

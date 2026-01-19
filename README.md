@@ -39,7 +39,8 @@ Powered by **Framer Motion**, the application feels alive:
 
 ## 🚀 Key Features
 
-1. **Intelligent Dashboard**: Personalized greetings and AI strategy suggestions based on current energy levels.
+1. **AI-Driven Onboarding**: A real-time orchestration loop where Gemini decides the next question based on user engagement signals and drop-off risk.
+2. **Intelligent Dashboard**: Personalized greetings and AI strategy suggestions based on current energy levels.
 2. **Master List**: High-performance task management with list/grid views and expandable AI insights.
 3. **Genie AI Chat**: Globally accessible AI interaction for real-time task decomposition and scheduling.
 4. **Autonomous Settings**: Granular control over Genie's autonomy and UI motion intensity.
