@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/dashboard/layout";
 import { Card, Button } from "@/components/ui/core";
 import { useUser } from "@clerk/nextjs";
@@ -16,9 +16,12 @@ import {
     Palette,
     Eye,
     Activity,
-    User as UserIcon
+    User as UserIcon,
+    Download,
+    Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 export default function SettingsPage() {
     const { user } = useUser();
@@ -81,21 +84,37 @@ export default function SettingsPage() {
                             <Activity className="text-primary" size={24} />
                             <h2 className="text-xl font-bold">Motion & Flow</h2>
                         </div>
-                        <Card className="space-y-6">
+                        <Card className="space-y-6" padding="lg">
                             <ToggleSetting
+                                key="high-intensity-motion"
+                                storageKey="highIntensityMotion"
                                 title="High Intensity Motion"
                                 description="Enable complex transitions and AI-driven fluid movement."
                                 defaultChecked={true}
                             />
                             <ToggleSetting
+                                key="tactile-feedback"
+                                storageKey="tactileFeedback"
                                 title="Tactile Feedback"
                                 description="Subtle vibrations and micro-interactions on task completion."
                                 defaultChecked={true}
                             />
                             <ToggleSetting
+                                key="reduced-motion"
+                                storageKey="reducedMotion"
                                 title="Reduced Motion"
-                                description="Simplify animations for a calmer experience."
+                                description="Simplify animations for a calmer experience. Respects system preferences."
                                 defaultChecked={false}
+                                onToggle={(enabled) => {
+                                    if (enabled) {
+                                        document.documentElement.style.setProperty('--motion-reduce', '1');
+                                        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                                            toast.info("Reduced motion enabled. Animations will be simplified.");
+                                        }
+                                    } else {
+                                        document.documentElement.style.removeProperty('--motion-reduce');
+                                    }
+                                }}
                             />
                         </Card>
                     </div>
@@ -105,18 +124,24 @@ export default function SettingsPage() {
                             <Shield className="text-primary" size={24} />
                             <h2 className="text-xl font-bold">Genie Autonomy</h2>
                         </div>
-                        <Card className="space-y-6">
+                        <Card className="space-y-6" padding="lg">
                             <ToggleSetting
+                                key="auto-breaking"
+                                storageKey="autoBreakingTasks"
                                 title="Auto-Breaking Tasks"
                                 description="Allow Genie to automatically decompose focus-heavy goals."
                                 defaultChecked={true}
                             />
                             <ToggleSetting
+                                key="predictive-scheduling"
+                                storageKey="predictiveScheduling"
                                 title="Predictive Scheduling"
                                 description="Let Genie manage your calendar based on biological peak times."
                                 defaultChecked={true}
                             />
                             <ToggleSetting
+                                key="contextual-awareness"
+                                storageKey="contextualAwareness"
                                 title="Contextual Awareness"
                                 description="Enable location and activity based task suggestions."
                                 defaultChecked={false}
@@ -141,8 +166,24 @@ export default function SettingsPage() {
                             </div>
                         </div>
                         <div className="flex gap-4">
-                            <Button variant="outline">Export Data</Button>
-                            <Button variant="ai">Upgrade to Premium</Button>
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    toast.info("Data export feature coming soon!");
+                                }}
+                            >
+                                <Download size={18} className="mr-2" />
+                                Export Data
+                            </Button>
+                            <Button
+                                variant="ai"
+                                onClick={() => {
+                                    toast.info("Premium features coming soon!");
+                                }}
+                            >
+                                <Sparkles size={18} className="mr-2" />
+                                Upgrade to Premium
+                            </Button>
                         </div>
                     </Card>
                 </section>
@@ -151,24 +192,54 @@ export default function SettingsPage() {
     );
 }
 
-function ToggleSetting({ title, description, defaultChecked }: any) {
-    const [enabled, setEnabled] = useState(defaultChecked);
+interface ToggleSettingProps {
+    title: string;
+    description: string;
+    defaultChecked: boolean;
+    storageKey?: string;
+    onToggle?: (enabled: boolean) => void;
+}
+
+function ToggleSetting({ title, description, defaultChecked, storageKey, onToggle }: ToggleSettingProps) {
+    const [enabled, setEnabled] = useState(() => {
+        if (storageKey && typeof window !== "undefined") {
+            const stored = localStorage.getItem(`setting_${storageKey}`);
+            return stored !== null ? stored === "true" : defaultChecked;
+        }
+        return defaultChecked;
+    });
+
+    useEffect(() => {
+        if (storageKey && typeof window !== "undefined") {
+            localStorage.setItem(`setting_${storageKey}`, enabled.toString());
+        }
+        onToggle?.(enabled);
+    }, [enabled, storageKey, onToggle]);
+
+    const handleToggle = () => {
+        setEnabled(!enabled);
+        toast.success(`${title} ${!enabled ? "enabled" : "disabled"}`);
+    };
 
     return (
         <div className="flex items-start justify-between gap-4">
-            <div className="space-y-1">
+            <div className="space-y-1 flex-1">
                 <h4 className="font-bold">{title}</h4>
                 <p className="text-sm text-text-secondary leading-relaxed">{description}</p>
             </div>
             <button
-                onClick={() => setEnabled(!enabled)}
+                onClick={handleToggle}
                 className={cn(
-                    "w-12 h-6 rounded-full transition-all relative shrink-0",
+                    "w-12 h-6 rounded-full transition-all relative shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
                     enabled ? "bg-primary" : "bg-surface-hover border border-border"
                 )}
+                aria-label={`${title}: ${enabled ? "enabled" : "disabled"}`}
+                role="switch"
+                aria-checked={enabled}
             >
                 <motion.div
                     animate={{ x: enabled ? 24 : 2 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
                     className={cn(
                         "w-4 h-4 rounded-full absolute top-1 transition-colors",
                         enabled ? "bg-background" : "bg-text-secondary"

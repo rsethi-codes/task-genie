@@ -1,6 +1,6 @@
 "use client";
 
-import { useUser } from "@clerk/nextjs";
+import { useUser, useAuth } from "@clerk/nextjs";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import DashboardLayout from "@/components/dashboard/layout";
 import { Card, Button } from "@/components/ui/core";
@@ -18,12 +18,64 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { useState, useEffect, useCallback } from "react";
+import { TaskCreationModal } from "@/components/tasks/task-creation-modal";
+import { TaskDetailModal } from "@/components/tasks/task-detail-modal";
+import { toast } from "sonner";
+
+type Task = {
+  id: string;
+  title: string;
+  category: string | null;
+  dueDate: string | null;
+  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  status: "DRAFT" | "ACTIVE" | "BLOCKED" | "COMPLETED" | "ARCHIVED";
+  completed: boolean; // Virtual property derived from status
+  aiSuggested?: boolean;
+};
 
 export default function Dashboard() {
-  const { user, isLoaded } = useUser();
+  const { user, isLoaded: isUserLoaded } = useUser();
+  const { getToken } = useAuth();
+  const [isTasksLoading, setIsTasksLoading] = useState(true);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  const fetchTasks = useCallback(async () => {
+    try {
+      const token = await getToken();
+      if (!token) return;
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_API_URL}/tasks`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!response.ok) throw new Error("Failed to fetch tasks");
+
+      const data = await response.json();
+      const normalizedTasks = data.map((t: any) => ({
+        ...t,
+        completed: t.status === "COMPLETED"
+      }));
+      setTasks(normalizedTasks);
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+      toast.error("Failed to sync tasks");
+    } finally {
+      setIsTasksLoading(false);
+    }
+  }, [getToken]);
+
+  useEffect(() => {
+    if (isUserLoaded && user) {
+      fetchTasks();
+    }
+  }, [isUserLoaded, user, fetchTasks]);
 
   // Loading state with skeleton
-  if (!isLoaded) {
+  if (!isUserLoaded || isTasksLoading) {
     return (
       <DashboardLayout user={{ fullName: null }}>
         <div className="space-y-8">
@@ -46,36 +98,52 @@ export default function Dashboard() {
     );
   }
 
-  // Mock data - in real app, this would come from API
-  const tasks = [
-    {
-      id: "1",
-      title: "Implement Glassmorphism Components",
-      category: "Frontend",
-      time: "10:00 AM",
-      priority: "high" as const,
-      completed: false,
-      aiSuggested: true,
-    },
-    {
-      id: "2",
-      title: "Review Designer Feedback",
-      category: "General",
-      time: "2:15 PM",
-      priority: "medium" as const,
-      completed: false,
-      aiSuggested: false,
-    },
-    {
-      id: "3",
-      title: "Daily Standup Meeting",
-      category: "Team",
-      time: "11:00 AM",
-      priority: "low" as const,
-      completed: true,
-      aiSuggested: false,
-    },
-  ];
+  const handleTaskCreated = (newTask: any) => {
+    const task: Task = {
+      ...newTask,
+      completed: newTask.status === "COMPLETED"
+    };
+    setTasks((prev) => [task, ...prev]);
+  };
+
+  const handleToggleComplete = async (taskId: string) => {
+    const taskToToggle = tasks.find(t => t.id === taskId);
+    if (!taskToToggle) return;
+
+    const newStatus = taskToToggle.status === "COMPLETED" ? "ACTIVE" : "COMPLETED";
+
+    // Optimistic UI
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === taskId ? { ...t, status: newStatus, completed: newStatus === "COMPLETED" } : t
+      )
+    );
+
+    try {
+      const token = await getToken();
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_API_URL}/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (!response.ok) throw new Error("Failed to update task");
+
+      const updatedTask = await response.json();
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === taskId ? { ...updatedTask, completed: updatedTask.status === "COMPLETED" } : t
+        )
+      );
+    } catch (error) {
+      // Revert on error
+      toast.error("Failed to update task");
+      fetchTasks();
+    }
+  };
 
   const activeTasks = tasks.filter(t => !t.completed);
   const hasTasks = tasks.length > 0;
@@ -146,7 +214,14 @@ export default function Dashboard() {
 
               {/* Primary action - More prominent */}
               <div className="relative z-10 mt-8">
-                <Button variant="ai" size="lg" className="w-full md:w-auto shadow-lg">
+                <Button
+                  variant="ai"
+                  size="lg"
+                  className="w-full md:w-auto shadow-lg"
+                  onClick={() => {
+                    toast.info("AI plan execution coming soon!");
+                  }}
+                >
                   Execute Plan
                   <ArrowRight className="ml-2 w-4 h-4" />
                 </Button>
@@ -222,8 +297,19 @@ export default function Dashboard() {
                 {tasks.map((task, index) => (
                   <TaskItem
                     key={task.id}
-                    {...task}
+                    id={task.id}
+                    title={task.title}
+                    category={task.category}
+                    dueDate={task.dueDate}
+                    priority={task.priority}
+                    completed={task.completed}
+                    aiSuggested={task.aiSuggested}
                     delay={index * 0.05}
+                    onToggleComplete={handleToggleComplete}
+                    onDetailsClick={() => {
+                      setSelectedTask(task);
+                      setIsDetailModalOpen(true);
+                    }}
                   />
                 ))}
               </motion.div>
@@ -244,7 +330,11 @@ export default function Dashboard() {
                     <p className="text-sm text-text-secondary mb-6 max-w-sm">
                       Start your day by adding a focus task or let Genie suggest one for you.
                     </p>
-                    <Button variant="outline" size="sm">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsCreateModalOpen(true)}
+                    >
                       Add Task
                     </Button>
                   </div>
@@ -285,31 +375,67 @@ export default function Dashboard() {
           </Card>
         </motion.section>
       </motion.div>
+
+      {/* Modals */}
+      <TaskCreationModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onTaskCreated={handleTaskCreated}
+      />
+      <TaskDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedTask(null);
+        }}
+        task={selectedTask ? {
+          id: selectedTask.id,
+          title: selectedTask.title,
+          category: selectedTask.category || "General",
+          priority: selectedTask.priority as any,
+          status: selectedTask.status as any,
+          time: selectedTask.dueDate ? new Date(selectedTask.dueDate).toLocaleTimeString() : "Anytime",
+          aiSuggested: selectedTask.aiSuggested,
+        } : null}
+        onToggleComplete={(taskId) => {
+          handleToggleComplete(taskId);
+        }}
+      />
     </DashboardLayout>
   );
 }
 
 function TaskItem({
+  id,
   title,
   category,
-  time,
+  dueDate,
   priority,
   completed,
   aiSuggested,
-  delay = 0
+  delay = 0,
+  onToggleComplete,
+  onDetailsClick,
 }: {
+  id: string;
   title: string;
-  category: string;
-  time: string;
-  priority: "high" | "medium" | "low";
+  category: string | null;
+  dueDate: string | null;
+  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   completed: boolean;
   aiSuggested?: boolean;
   delay?: number;
+  onToggleComplete?: (id: string) => void;
+  onDetailsClick?: () => void;
 }) {
   const priorityColors = {
-    high: "bg-error",
+    HIGH: "bg-warning",
+    MEDIUM: "bg-warning",
+    LOW: "bg-info",
+    URGENT: "bg-error",
+    high: "bg-warning", // Fallback
     medium: "bg-warning",
-    low: "bg-info/60",
+    low: "bg-info",
   };
 
   return (
@@ -328,6 +454,11 @@ function TaskItem({
       <div className="flex items-center gap-4 min-w-0 flex-1">
         {/* Checkbox - Primary interaction */}
         <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleComplete?.(id);
+            toast.success(completed ? "Task marked as incomplete" : "Task completed!");
+          }}
           className={cn(
             "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0",
             completed
@@ -354,11 +485,11 @@ function TaskItem({
           </div>
           <div className="flex items-center gap-2.5 flex-wrap">
             <span className="text-[10px] font-bold text-text-secondary/70 uppercase tracking-wider px-2 py-0.5 rounded-md bg-surface-hover/60">
-              {category}
+              {category || "General"}
             </span>
             <div className="flex items-center gap-1.5 text-xs text-text-secondary/70">
               <Clock size={11} />
-              <span>{time}</span>
+              <span>{dueDate ? new Date(dueDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Anytime"}</span>
             </div>
           </div>
         </div>
@@ -376,6 +507,10 @@ function TaskItem({
         <Button
           variant="ghost"
           size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDetailsClick?.();
+          }}
           className="opacity-0 group-hover:opacity-60 hover:opacity-100 transition-opacity text-xs px-2"
         >
           Details

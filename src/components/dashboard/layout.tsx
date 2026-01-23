@@ -12,11 +12,13 @@ import {
     Settings,
     Sparkles,
     Search,
-    Plus
+    Plus,
+    Menu,
+    X
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { ReactNode, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { ReactNode, useState, KeyboardEvent } from "react";
 import { Button } from "@/components/ui/core";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { UserButton, SignOutButton } from "@clerk/nextjs";
@@ -32,7 +34,16 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children, user }: DashboardLayoutProps) {
     const pathname = usePathname();
+    const router = useRouter();
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+
+    const handleSearch = (e: KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === "Enter" && searchQuery.trim()) {
+            router.push(`/dashboard/tasks?search=${encodeURIComponent(searchQuery)}`);
+        }
+    };
 
     const sidebarLinks = [
         { name: "Focus", href: "/dashboard", icon: Home },
@@ -44,12 +55,41 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
 
     return (
         <div className="flex h-screen bg-background overflow-hidden">
+            {/* Mobile Menu Overlay */}
+            {isMobileMenuOpen && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
+                />
+            )}
+
             {/* Sidebar */}
             <motion.aside
                 initial={{ width: 280 }}
-                animate={{ width: isCollapsed ? 80 : 280 }}
-                className="glass border-r border-border h-full flex flex-col z-30 relative"
+                animate={{ 
+                    width: isCollapsed ? 80 : 280,
+                    x: isMobileMenuOpen ? 0 : (typeof window !== "undefined" && window.innerWidth < 1024 ? -280 : 0)
+                }}
+                className="glass border-r border-border h-full flex flex-col z-30 relative lg:relative fixed lg:static"
             >
+                {/* Mobile Menu Toggle */}
+                <div className="lg:hidden p-4 flex items-center justify-between border-b border-border">
+                    <Link href="/" className="flex items-center gap-3">
+                        <div className="w-8 h-8 ai-gradient rounded-lg flex items-center justify-center shrink-0">
+                            <Sparkles className="text-white w-5 h-5" />
+                        </div>
+                        <span className="font-display font-bold text-xl tracking-tight">TaskGenie</span>
+                    </Link>
+                    <button
+                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                        className="p-2 rounded-lg hover:bg-surface-hover transition-colors"
+                    >
+                        {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+                    </button>
+                </div>
                 <div className="p-6 flex items-center justify-between">
                     <Link href="/" className="flex items-center gap-3">
                         <div className="w-8 h-8 ai-gradient rounded-lg flex items-center justify-center shrink-0">
@@ -65,7 +105,11 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
                     {sidebarLinks.map((link) => {
                         const isActive = pathname === link.href;
                         return (
-                            <Link key={link.href} href={link.href}>
+                            <Link 
+                                key={link.href} 
+                                href={link.href}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                            >
                                 <motion.div
                                     whileHover={{ x: 4 }}
                                     className={cn(
@@ -114,15 +158,25 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
             </motion.aside>
 
             {/* Main Content */}
-            <main className="flex-1 flex flex-col min-w-0 relative overflow-hidden">
+            <main className="flex-1 flex flex-col min-w-0 relative overflow-hidden lg:ml-0">
                 {/* Header */}
-                <header className="h-20 border-b border-border px-8 flex items-center justify-between glass z-20">
+                <header className="h-20 border-b border-border px-4 lg:px-8 flex items-center justify-between glass z-20">
+                    {/* Mobile Menu Button */}
+                    <button
+                        onClick={() => setIsMobileMenuOpen(true)}
+                        className="lg:hidden p-2 rounded-lg hover:bg-surface-hover transition-colors mr-4"
+                    >
+                        <Menu size={20} />
+                    </button>
                     <div className="flex items-center gap-4 flex-1">
                         <div className="relative max-w-md w-full">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary w-4 h-4" />
                             <input
                                 type="text"
-                                placeholder="Find a task or ask Genie..."
+                                placeholder="Find a task or ask Genie... (Press Enter)"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onKeyDown={handleSearch}
                                 className="w-full bg-surface border border-border rounded-xl py-2.5 pl-11 pr-4 text-sm focus:border-primary transition-all outline-none"
                             />
                         </div>
@@ -133,9 +187,11 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
                             <span className="text-xs font-bold text-text-secondary uppercase">Streak</span>
                             <span className="text-sm font-bold text-primary">🔥 12 Days</span>
                         </div>
-                        <Button variant="ai" size="sm" className="hidden sm:flex">
-                            <Plus size={18} /> New Task
-                        </Button>
+                        <Link href="/dashboard/tasks">
+                            <Button variant="ai" size="sm" className="hidden sm:flex">
+                                <Plus size={18} /> New Task
+                            </Button>
+                        </Link>
                     </div>
                 </header>
 
