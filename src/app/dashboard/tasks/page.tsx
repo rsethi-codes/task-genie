@@ -18,13 +18,14 @@ import {
     LayoutGrid,
     List as ListIcon
 } from "lucide-react";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { TaskCreationModal } from "@/components/tasks/task-creation-modal";
 import { TaskDetailModal } from "@/components/tasks/task-detail-modal";
 import { toast } from "sonner";
 import { ThinkingIndicator } from "@/components/tasks/thinking-indicator";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 type TaskStatus = "DRAFT" | "ACTIVE" | "BLOCKED" | "COMPLETED" | "ARCHIVED";
 type Priority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
@@ -40,6 +41,8 @@ type Task = {
     completedSubtasks: number;
     dueDate: string | null;
     isProcessing?: boolean;
+    aiGenerationStatus?: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+    aiSuggested?: boolean; // Derived from aiGenerationStatus
 };
 
 const getGroup = (dueDate: string | null, status: string): "Today" | "Upcoming" | "Overdue" => {
@@ -62,17 +65,19 @@ export default function TasksPage() {
     const searchParams = useSearchParams();
     const [view, setView] = useState<"list" | "grid">("list");
     const [expandedTask, setExpandedTask] = useState<string | null>(null);
-    const [tasks, setTasks] = useState<Task[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+    const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
 
-    const fetchTasks = async () => {
-        try {
+    const queryClient = useQueryClient();
+
+    const tasksQuery = useQuery({
+        queryKey: ["tasks", user?.id],
+        enabled: !!user,
+        queryFn: async () => {
             const token = await getToken();
-            if (!token) return;
+            if (!token) return [];
 
             const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_API_URL}/tasks`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -81,24 +86,20 @@ export default function TasksPage() {
             if (!response.ok) throw new Error("Failed to fetch tasks");
 
             const data = await response.json();
-            const normalizedTasks = data.map((t: any) => ({
+            return data.map((t: any) => ({
                 ...t,
-                group: getGroup(t.dueDate, t.status)
-            }));
-            setTasks(normalizedTasks);
-        } catch (error) {
-            console.error("Error fetching tasks:", error);
-            toast.error("Failed to sync tasks");
-        } finally {
-            setIsLoading(false);
-        }
-    };
+                group: getGroup(t.dueDate, t.status),
+                aiSuggested: t.aiGenerationStatus === "COMPLETED",
+            })) as Task[];
+        },
+        refetchInterval: (query) => {
+            const data = query.state.data as Task[] | undefined;
+            const hasProcessingTasks = !!data?.some(t => t.aiGenerationStatus === "PENDING" || t.aiGenerationStatus === "PROCESSING");
+            return hasProcessingTasks ? 3000 : false;
+        },
+    });
 
-    useEffect(() => {
-        if (user) {
-            fetchTasks();
-        }
-    }, [user, getToken]);
+    const tasks = tasksQuery.data ?? [];
 
     const groups = ["Today", "Upcoming", "Overdue"];
 
@@ -112,62 +113,21 @@ export default function TasksPage() {
         );
     }, [tasks, searchQuery]);
 
+    const selectedTask = useMemo(() =>
+        selectedTaskId ? tasks.find(t => t.id === selectedTaskId) || null : null
+        , [tasks, selectedTaskId]);
+
     const handleTaskCreated = (newTask: any) => {
         const taskWithProcessing = {
             ...newTask,
             group: getGroup(newTask.dueDate, newTask.status),
-            isProcessing: true
+            aiGenerationStatus: "PENDING"
         };
-        setTasks((prev) => [taskWithProcessing, ...prev]);
+        queryClient.setQueryData(["tasks", user?.id], (prev: Task[] | undefined) => [taskWithProcessing, ...(prev ?? [])]);
     };
 
-    // Poll for processing tasks
-    useEffect(() => {
-        const processingTasks = tasks.filter(t => t.isProcessing);
-        if (processingTasks.length === 0) return;
-
-        const pollInterval = setInterval(async () => {
-            const token = await getToken();
-            if (!token) return;
-
-            for (const task of processingTasks) {
-                try {
-                    const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_API_URL}/tasks/${task.id}`, {
-                        headers: { Authorization: `Bearer ${token}` }
-                    });
-                    if (res.ok) {
-                        const data = await res.json();
-                        // If subtasks are generated or processing flag on backend would be better, 
-                        // but here we check subtaskCount or hasSubtasks
-                        if (data.subtaskCount > 0 || data.hasSubtasks) {
-                            setTasks(prev => prev.map(t =>
-                                t.id === task.id ? { ...t, isProcessing: false, subtaskCount: data.subtaskCount } : t
-                            ));
-                        }
-                    }
-                } catch (e) {
-                    console.error("Polling error", e);
-                }
-            }
-        }, 3000);
-
-        return () => clearInterval(pollInterval);
-    }, [tasks, getToken]);
-
-    const handleToggleComplete = async (taskId: string) => {
-        const taskToToggle = tasks.find(t => t.id === taskId);
-        if (!taskToToggle) return;
-
-        const newStatus = taskToToggle.status === "COMPLETED" ? "ACTIVE" : "COMPLETED";
-
-        // Optimistic UI
-        setTasks((prev) =>
-            prev.map((t) =>
-                t.id === taskId ? { ...t, status: newStatus as any } : t
-            )
-        );
-
-        try {
+    const toggleCompleteMutation = useMutation({
+        mutationFn: async ({ taskId, newStatus }: { taskId: string; newStatus: TaskStatus }) => {
             const token = await getToken();
             const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_API_URL}/tasks/${taskId}`, {
                 method: "PATCH",
@@ -179,17 +139,42 @@ export default function TasksPage() {
             });
 
             if (!response.ok) throw new Error("Failed to update task");
+            return response.json();
+        },
+        onMutate: async ({ taskId, newStatus }) => {
+            await queryClient.cancelQueries({ queryKey: ["tasks", user?.id] });
+            const previous = queryClient.getQueryData<Task[]>(["tasks", user?.id]);
 
-            const updatedTask = await response.json();
-            setTasks((prev) =>
-                prev.map((t) =>
-                    t.id === taskId ? { ...updatedTask, group: getGroup(updatedTask.dueDate, updatedTask.status) } : t
+            queryClient.setQueryData(["tasks", user?.id], (prev: Task[] | undefined) =>
+                (prev ?? []).map(t => (t.id === taskId ? { ...t, status: newStatus } : t))
+            );
+
+            return { previous };
+        },
+        onError: (_err, _vars, ctx) => {
+            toast.error("Failed to update task");
+            if (ctx?.previous) queryClient.setQueryData(["tasks", user?.id], ctx.previous);
+        },
+        onSuccess: (updatedTask) => {
+            queryClient.setQueryData(["tasks", user?.id], (prev: Task[] | undefined) =>
+                (prev ?? []).map(t =>
+                    t.id === updatedTask.id
+                        ? { ...updatedTask, group: getGroup(updatedTask.dueDate, updatedTask.status) }
+                        : t
                 )
             );
-        } catch (error) {
-            toast.error("Failed to update task");
-            fetchTasks();
-        }
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ["tasks", user?.id] });
+        },
+    });
+
+    const handleToggleComplete = async (taskId: string) => {
+        const taskToToggle = tasks.find(t => t.id === taskId);
+        if (!taskToToggle) return;
+
+        const newStatus: TaskStatus = taskToToggle.status === "COMPLETED" ? "ACTIVE" : "COMPLETED";
+        toggleCompleteMutation.mutate({ taskId, newStatus });
     };
 
     const handleTaskClick = (task: Task, e: React.MouseEvent) => {
@@ -198,7 +183,7 @@ export default function TasksPage() {
         if (target.closest('button') || target.closest('[role="button"]')) {
             return;
         }
-        setSelectedTask(task);
+        setSelectedTaskId(task.id);
         setIsDetailModalOpen(true);
     };
 
@@ -269,9 +254,9 @@ export default function TasksPage() {
                                                 <Card className={cn(
                                                     "p-4 cursor-pointer hover:border-primary/30 transition-all group overflow-hidden relative",
                                                     task.status === "COMPLETED" && "opacity-50",
-                                                    task.isProcessing && "border-primary/20 bg-primary/[0.02]"
+                                                    (task.aiGenerationStatus === "PENDING" || task.aiGenerationStatus === "PROCESSING") && "border-primary/20 bg-primary/[0.02]"
                                                 )}>
-                                                    {task.isProcessing && (
+                                                    {(task.aiGenerationStatus === "PENDING" || task.aiGenerationStatus === "PROCESSING") && (
                                                         <motion.div
                                                             initial={{ x: "-100%" }}
                                                             animate={{ x: "100%" }}
@@ -302,11 +287,11 @@ export default function TasksPage() {
                                                                 <h3 className={cn("font-bold text-lg", task.status === "COMPLETED" && "line-through")}>{task.title}</h3>
                                                                 <div className="flex items-center gap-3 mt-1 text-xs font-medium text-text-secondary">
                                                                     <span className="bg-surface-hover px-2 py-0.5 rounded-md text-text uppercase tracking-wider">{task.category || "General"}</span>
-                                                                    {task.isProcessing ? (
+                                                                    {(task.aiGenerationStatus === "PENDING" || task.aiGenerationStatus === "PROCESSING") ? (
                                                                         <ThinkingIndicator className="mt-1" />
                                                                     ) : (
                                                                         <div className="flex items-center gap-1">
-                                                                            <Sparkles size={12} className="text-primary" />
+                                                                            {task.aiSuggested && <Sparkles size={12} className="text-primary" />}
                                                                             {task.subtaskCount || 0} subtasks
                                                                         </div>
                                                                     )}
@@ -353,7 +338,7 @@ export default function TasksPage() {
                                                                         size="sm"
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
-                                                                            setSelectedTask(task);
+                                                                            setSelectedTaskId(task.id);
                                                                             setIsDetailModalOpen(true);
                                                                         }}
                                                                     >
@@ -380,7 +365,7 @@ export default function TasksPage() {
                                                     </div>
                                                     <div className="mt-8 pt-4 border-t border-border flex justify-between items-center text-xs font-bold text-text-secondary">
                                                         <div className="flex items-center gap-1">
-                                                            <Clock size={12} />
+                                                            {task.aiSuggested && <Sparkles size={12} className="text-primary" />}
                                                             {task.subtaskCount || 0} Subtasks
                                                         </div>
                                                         <span className="uppercase tracking-widest">{task.status.toLowerCase()}</span>
@@ -405,7 +390,7 @@ export default function TasksPage() {
                     isOpen={isDetailModalOpen}
                     onClose={() => {
                         setIsDetailModalOpen(false);
-                        setSelectedTask(null);
+                        setSelectedTaskId(null);
                     }}
                     task={selectedTask ? {
                         id: selectedTask.id,
@@ -414,7 +399,8 @@ export default function TasksPage() {
                         priority: selectedTask.priority as any,
                         status: selectedTask.status as any,
                         time: selectedTask.dueDate ? new Date(selectedTask.dueDate).toLocaleTimeString() : "Anytime",
-                        aiSuggested: false,
+                        aiSuggested: selectedTask.aiSuggested,
+                        aiGenerationStatus: selectedTask.aiGenerationStatus,
                     } : null}
                     onToggleComplete={handleToggleComplete}
                 />

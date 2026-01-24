@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { EngagementSignals } from "./types";
 
 export function useEngagementTracker() {
@@ -16,7 +16,6 @@ export function useEngagementTracker() {
 
     const startTimeRef = useRef<number>(Date.now());
     const lastInputTimeRef = useRef<number>(Date.now());
-    const hesitationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const resetForNewQuestion = () => {
         startTimeRef.current = Date.now();

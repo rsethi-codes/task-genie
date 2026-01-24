@@ -15,6 +15,7 @@ export interface TaskListItemProps {
   time?: string;
   subtasks?: number;
   aiSuggested?: boolean;
+  aiGenerationStatus?: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
   delay?: number;
   onToggleComplete?: (id: string) => void;
   onDetailsClick?: () => void;
@@ -38,6 +39,7 @@ export function TaskListItem({
   time,
   subtasks,
   aiSuggested,
+  aiGenerationStatus,
   delay = 0,
   onToggleComplete,
   onDetailsClick,
@@ -86,7 +88,7 @@ export function TaskListItem({
           <div className="mt-8 pt-4 border-t border-border flex justify-between items-center text-xs font-bold text-text-secondary">
             {subtasks !== undefined && (
               <div className="flex items-center gap-1">
-                <Clock size={12} />
+                {aiSuggested && <Sparkles size={12} className="text-primary" />}
                 {subtasks} Subtasks
               </div>
             )}
@@ -146,6 +148,9 @@ export function TaskListItem({
                 aria-label="AI suggested"
               />
             )}
+            {(aiGenerationStatus === "PENDING" || aiGenerationStatus === "PROCESSING") && (
+              <ThinkingIndicator className="ml-2" />
+            )}
           </div>
           <div className="flex items-center gap-2.5 flex-wrap">
             <span className="text-[10px] font-bold text-text-secondary/70 uppercase tracking-wider px-2 py-0.5 rounded-md bg-surface-hover/60">
@@ -159,7 +164,7 @@ export function TaskListItem({
             )}
             {subtasks !== undefined && (
               <div className="flex items-center gap-1.5 text-xs text-text-secondary/70">
-                <Sparkles size={11} className="text-primary" />
+                {aiSuggested && <Sparkles size={11} className="text-primary" />}
                 <span>{subtasks} subtasks</span>
               </div>
             )}

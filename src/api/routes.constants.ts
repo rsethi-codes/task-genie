@@ -19,3 +19,26 @@ export const TASK_ROUTES = {
   DELETE: (taskId: string) => `/${taskId}/delete`,
   LIST: "/",
 };
+
+export const SUBTASK_ROUTES = {
+  CREATE: (taskId: string) => `/${taskId}/subtasks/create`,
+  UPDATE: (taskId: string, subtaskId: string) => `/${taskId}/subtasks/${subtaskId}/update`,
+  DELETE: (taskId: string, subtaskId: string) => `/${taskId}/subtasks/${subtaskId}/delete`,
+};
+
+export const BEHAVIOR_PATTERN_ROUTES = {
+  CREATE: (taskId: string) => `/${taskId}/behavior-patterns/create`,
+  UPDATE: (taskId: string, behaviorPatternId: string) => `/${taskId}/behavior-patterns/${behaviorPatternId}/update`,
+  DELETE: (taskId: string, behaviorPatternId: string) => `/${taskId}/behavior-patterns/${behaviorPatternId}/delete`,
+};
+
+export const ONBOARDING_ROUTES = {
+  NEXT: "/next",
+  SAVE_PERSONA: "/save-persona",
+};
+
+export const WEBHOOK_ROUTES = {
+  CLERK_WEBHOOK: "/webhooks/clerk-webhook",
+};
+
+
