@@ -38,6 +38,7 @@ export async function POST(request: Request) {
 
   console.log(`📨 Clerk webhook received: ${event.type}`);
 
+  // TODO: HANDLE OTHER EVENTS
   // 🔒 NARROW BY EVENT TYPE
   if (event.type !== "user.created" && event.type !== "user.updated" && event.type !== "user.deleted") {
     return new Response("Ignored", { status: 200 });

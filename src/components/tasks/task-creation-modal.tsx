@@ -3,7 +3,8 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/core";
-import { Sparkles, Loader2, Calendar, Tag, ChevronRight, Check } from "lucide-react";
+import { Sparkles, Loader2, Calendar, Tag, ChevronRight, Check, Wand2 } from "lucide-react";
+import { ThinkingIndicator } from "./thinking-indicator";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 import debounce from "lodash/debounce";
@@ -175,11 +176,15 @@ export function TaskCreationModal({
           <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-3">
             {isEnriching && (
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                className="flex items-center gap-2 pr-2"
               >
-                <Loader2 size={20} className="animate-spin text-primary/40" />
+                <ThinkingIndicator className="scale-75 origin-right" />
+                <span className="text-[10px] font-black uppercase tracking-[0.1em] text-primary/40 whitespace-nowrap">
+                  Genie is analyzing
+                </span>
               </motion.div>
             )}
             {title.length > 0 && !isSubmitting && (

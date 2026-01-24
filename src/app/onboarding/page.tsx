@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, ArrowRight, Brain, Zap, Loader2, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Brain, Loader2, CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/core";
 import CenteredCoverScreen from "@/components/common/centered-screen-cover";
@@ -49,6 +49,24 @@ export default function OnboardingPage() {
             if (decision.type === "end") {
                 setStep("finalizing");
                 setPersona(decision.finalPersona);
+                
+                // Save the final persona to the database
+                try {
+                    const saveResp = await fetch("/api/onboarding/save-persona", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ finalPersona: decision.finalPersona }),
+                    });
+                    
+                    if (!saveResp.ok) {
+                        console.error("Failed to save persona to database");
+                    } else {
+                        console.log("Persona successfully saved to database");
+                    }
+                } catch (saveErr) {
+                    console.error("Error saving persona:", saveErr);
+                }
+                
                 setTimeout(() => router.push("/dashboard"), 2500);
             } else {
                 setCurrentQuestion(decision.question);

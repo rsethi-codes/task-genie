@@ -18,10 +18,11 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { TaskCreationModal } from "@/components/tasks/task-creation-modal";
 import { TaskDetailModal } from "@/components/tasks/task-detail-modal";
 import { toast } from "sonner";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 type Task = {
   id: string;
@@ -37,16 +38,18 @@ type Task = {
 export default function Dashboard() {
   const { user, isLoaded: isUserLoaded } = useUser();
   const { getToken } = useAuth();
-  const [isTasksLoading, setIsTasksLoading] = useState(true);
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
-  const fetchTasks = useCallback(async () => {
-    try {
+  const queryClient = useQueryClient();
+
+  const tasksQuery = useQuery({
+    queryKey: ["tasks", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
       const token = await getToken();
-      if (!token) return;
+      if (!token) return [];
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_API_URL}/tasks`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -55,27 +58,67 @@ export default function Dashboard() {
       if (!response.ok) throw new Error("Failed to fetch tasks");
 
       const data = await response.json();
-      const normalizedTasks = data.map((t: any) => ({
+      return data.map((t: any) => ({
         ...t,
         completed: t.status === "COMPLETED"
-      }));
-      setTasks(normalizedTasks);
-    } catch (error) {
-      console.error("Error fetching tasks:", error);
-      toast.error("Failed to sync tasks");
-    } finally {
-      setIsTasksLoading(false);
-    }
-  }, [getToken]);
+      })) as Task[];
+    },
+    refetchInterval: (query) => {
+      const data = query.state.data as Task[] | undefined;
+      const hasProcessingTasks = !!data?.some(t => (t as any).aiGenerationStatus === "PENDING" || (t as any).aiGenerationStatus === "PROCESSING");
+      return hasProcessingTasks ? 3000 : false;
+    },
+  });
 
-  useEffect(() => {
-    if (isUserLoaded && user) {
-      fetchTasks();
-    }
-  }, [isUserLoaded, user, fetchTasks]);
+  const tasks = tasksQuery.data ?? [];
+
+  const toggleCompleteMutation = useMutation({
+    mutationFn: async ({ taskId, newStatus }: { taskId: string; newStatus: Task["status"] }) => {
+      const token = await getToken();
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_API_URL}/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (!response.ok) throw new Error("Failed to update task");
+      return response.json();
+    },
+    onMutate: async ({ taskId, newStatus }) => {
+      await queryClient.cancelQueries({ queryKey: ["tasks", user?.id] });
+      const previous = queryClient.getQueryData<Task[]>(["tasks", user?.id]);
+
+      queryClient.setQueryData(["tasks", user?.id], (prev: Task[] | undefined) =>
+        (prev ?? []).map(t =>
+          t.id === taskId ? { ...t, status: newStatus, completed: newStatus === "COMPLETED" } : t
+        )
+      );
+
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      toast.error("Failed to update task");
+      if (ctx?.previous) queryClient.setQueryData(["tasks", user?.id], ctx.previous);
+    },
+    onSuccess: (updatedTask) => {
+      queryClient.setQueryData(["tasks", user?.id], (prev: Task[] | undefined) =>
+        (prev ?? []).map(t =>
+          t.id === updatedTask.id
+            ? { ...updatedTask, completed: updatedTask.status === "COMPLETED" }
+            : t
+        )
+      );
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks", user?.id] });
+    },
+  });
 
   // Loading state with skeleton
-  if (!isUserLoaded || isTasksLoading) {
+  if (!isUserLoaded || (tasksQuery.isLoading && !tasksQuery.data)) {
     return (
       <DashboardLayout user={{ fullName: null }}>
         <div className="space-y-8">
@@ -103,7 +146,7 @@ export default function Dashboard() {
       ...newTask,
       completed: newTask.status === "COMPLETED"
     };
-    setTasks((prev) => [task, ...prev]);
+    queryClient.setQueryData(["tasks", user?.id], (prev: Task[] | undefined) => [task, ...(prev ?? [])]);
   };
 
   const handleToggleComplete = async (taskId: string) => {
@@ -111,38 +154,7 @@ export default function Dashboard() {
     if (!taskToToggle) return;
 
     const newStatus = taskToToggle.status === "COMPLETED" ? "ACTIVE" : "COMPLETED";
-
-    // Optimistic UI
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === taskId ? { ...t, status: newStatus, completed: newStatus === "COMPLETED" } : t
-      )
-    );
-
-    try {
-      const token = await getToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_API_URL}/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ status: newStatus })
-      });
-
-      if (!response.ok) throw new Error("Failed to update task");
-
-      const updatedTask = await response.json();
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === taskId ? { ...updatedTask, completed: updatedTask.status === "COMPLETED" } : t
-        )
-      );
-    } catch (error) {
-      // Revert on error
-      toast.error("Failed to update task");
-      fetchTasks();
-    }
+    toggleCompleteMutation.mutate({ taskId, newStatus });
   };
 
   const activeTasks = tasks.filter(t => !t.completed);

@@ -2,6 +2,58 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { env } from "@/config/env";
 import { AIDecision, OnboardingContext } from "./types";
 
+function fallbackFirstQuestion(context: OnboardingContext): AIDecision {
+  return {
+    type: "ask",
+    question: {
+      id: "step_1",
+      text: "When do you feel most productive?",
+      type: "choice",
+      options: ["Morning", "Afternoon", "Evening", "It varies"],
+      importance: "critical",
+      effort: "low",
+      rationale: "Low effort, choice-based hook question to start onboarding even if AI is unavailable."
+    }
+  };
+}
+
+function safeParseDecision(responseText: string): AIDecision {
+  const jsonStr = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
+  return JSON.parse(jsonStr) as AIDecision;
+}
+
+function isAskDecision(decision: any): decision is { type: "ask"; question: any } {
+  return Boolean(decision && decision.type === "ask" && decision.question && typeof decision.question.text === "string");
+}
+
+function isEndDecision(decision: any): decision is { type: "end"; finalPersona: any } {
+  return Boolean(decision && decision.type === "end" && decision.finalPersona);
+}
+
+function normalizeDecision(raw: any, context: OnboardingContext): AIDecision {
+  const stepCount = Object.keys(context.previousAnswers).length;
+
+  // Hard invariant: onboarding must ask at least one question.
+  if (stepCount === 0 && isEndDecision(raw)) {
+    return fallbackFirstQuestion(context);
+  }
+
+  if (isAskDecision(raw) || isEndDecision(raw)) {
+    return raw as AIDecision;
+  }
+
+  // If the model returns malformed output, keep flow alive.
+  return stepCount === 0 ? fallbackFirstQuestion(context) : {
+    type: "end",
+    finalPersona: {
+      version: context.currentPersona.version + 1,
+      timestamp: new Date().toISOString(),
+      traits: context.previousAnswers,
+      confidence: Math.min(0.3 + (stepCount * 0.05), 0.6)
+    }
+  };
+}
+
 const genAI = new GoogleGenerativeAI(env.api.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); // Reverting to valid model for stability
 
@@ -132,19 +184,23 @@ export async function getNextOnboardingDecision(context: OnboardingContext): Pro
   try {
     const result = await model.generateContent([SYSTEM_PROMPT, prompt]);
     const responseText = result.response.text();
-    // Clean JSON if needed (Gemini sometimes adds markdown blocks)
-    const jsonStr = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
-    return JSON.parse(jsonStr) as AIDecision;
+    const parsed = safeParseDecision(responseText);
+    return normalizeDecision(parsed, context);
   } catch (error) {
     console.error("Gemini Onboarding Error:", error);
-    // Fallback decision to avoid breaking flow
+    // IMPORTANT: Don't "skip" onboarding for first-time users due to AI errors.
+    if (stepCount === 0) {
+      return fallbackFirstQuestion(context);
+    }
+
+    // For later steps, we can end gracefully without breaking flow.
     return {
       type: "end",
       finalPersona: {
         version: context.currentPersona.version + 1,
         timestamp: new Date().toISOString(),
         traits: context.previousAnswers,
-        confidence: Math.min(0.3 + (stepCount * 0.05), 0.6) // Low confidence fallback
+        confidence: Math.min(0.3 + (stepCount * 0.05), 0.6)
       }
     };
   }
