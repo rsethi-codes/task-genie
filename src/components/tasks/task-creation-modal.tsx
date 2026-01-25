@@ -112,6 +112,7 @@ export function TaskCreationModal({
           priority,
           dueDate: dueDate ? new Date(dueDate).toISOString() : null,
           status: "ACTIVE",
+          nodeType: "ROOT", // Default to ROOT for new user tasks from this modal
           idempotencyKey: uuidv4(),
           aiMetadata: aiSuggestions ? {
             reasoning: aiSuggestions.reasoning,
