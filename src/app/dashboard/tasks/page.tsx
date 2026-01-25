@@ -18,35 +18,25 @@ import {
     LayoutGrid,
     List as ListIcon
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { TaskCreationModal } from "@/components/tasks/task-creation-modal";
 import { TaskDetailModal } from "@/components/tasks/task-detail-modal";
 import { toast } from "sonner";
 import { ThinkingIndicator } from "@/components/tasks/thinking-indicator";
+import { TaskItem } from "@/components/tasks/task-item";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSocket } from "@/components/providers/socket-provider";
 
-type TaskStatus = "DRAFT" | "ACTIVE" | "BLOCKED" | "COMPLETED" | "ARCHIVED";
-type Priority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+import { TaskNode, NodeType, NodeStatus, Priority } from "@/types/task-node";
 
-type Task = {
-    id: string;
-    title: string;
+type Task = TaskNode & {
     group: "Today" | "Upcoming" | "Overdue";
-    priority: Priority;
-    status: TaskStatus;
-    category: string | null;
-    subtaskCount: number;
-    completedSubtasks: number;
-    dueDate: string | null;
-    isProcessing?: boolean;
-    aiGenerationStatus?: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
-    aiSuggested?: boolean; // Derived from aiGenerationStatus
 };
 
-const getGroup = (dueDate: string | null, status: string): "Today" | "Upcoming" | "Overdue" => {
-    if (status === "COMPLETED") return "Upcoming"; // Or handled separately
+const getGroup = (dueDate: string | null, status: NodeStatus): "Today" | "Upcoming" | "Overdue" => {
+    if (status === NodeStatus.COMPLETED) return "Upcoming";
     if (!dueDate) return "Upcoming";
     const due = new Date(dueDate);
     const today = new Date();
@@ -62,6 +52,7 @@ const getGroup = (dueDate: string | null, status: string): "Today" | "Upcoming" 
 export default function TasksPage() {
     const { user } = useUser();
     const { getToken } = useAuth();
+    const { socket } = useSocket();
     const searchParams = useSearchParams();
     const [view, setView] = useState<"list" | "grid">("list");
     const [expandedTask, setExpandedTask] = useState<string | null>(null);
@@ -89,17 +80,33 @@ export default function TasksPage() {
             return data.map((t: any) => ({
                 ...t,
                 group: getGroup(t.dueDate, t.status),
-                aiSuggested: t.aiGenerationStatus === "COMPLETED",
+                aiSuggested: t.aiGenerationStatus === "READY",
             })) as Task[];
-        },
-        refetchInterval: (query) => {
-            const data = query.state.data as Task[] | undefined;
-            const hasProcessingTasks = !!data?.some(t => t.aiGenerationStatus === "PENDING" || t.aiGenerationStatus === "PROCESSING");
-            return hasProcessingTasks ? 3000 : false;
         },
     });
 
-    const tasks = tasksQuery.data ?? [];
+    // Real-time updates via Socket.IO
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleTaskUpdate = (payload: { taskId: string; status: string }) => {
+            console.log("[Socket] Master list update:", payload);
+            queryClient.invalidateQueries({ queryKey: ["tasks", user?.id] });
+
+            if (payload.status === 'READY') {
+                toast.success("Task generation complete!");
+            }
+        };
+
+        socket.on("task:status-updated", handleTaskUpdate);
+
+        return () => {
+            socket.off("task:status-updated", handleTaskUpdate);
+        };
+    }, [socket, user?.id, queryClient]);
+
+    // Ensure only top-level Goals are rendered in the main list
+    const tasks = (tasksQuery.data ?? []).filter(t => t.nodeType === NodeType.ROOT);
 
     const groups = ["Today", "Upcoming", "Overdue"];
 
@@ -127,7 +134,7 @@ export default function TasksPage() {
     };
 
     const toggleCompleteMutation = useMutation({
-        mutationFn: async ({ taskId, newStatus }: { taskId: string; newStatus: TaskStatus }) => {
+        mutationFn: async ({ taskId, newStatus }: { taskId: string; newStatus: NodeStatus }) => {
             const token = await getToken();
             const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_API_URL}/tasks/${taskId}`, {
                 method: "PATCH",
@@ -155,11 +162,11 @@ export default function TasksPage() {
             toast.error("Failed to update task");
             if (ctx?.previous) queryClient.setQueryData(["tasks", user?.id], ctx.previous);
         },
-        onSuccess: (updatedTask) => {
+        onSuccess: (updatedTask: TaskNode) => {
             queryClient.setQueryData(["tasks", user?.id], (prev: Task[] | undefined) =>
                 (prev ?? []).map(t =>
                     t.id === updatedTask.id
-                        ? { ...updatedTask, group: getGroup(updatedTask.dueDate, updatedTask.status) }
+                        ? { ...t, ...updatedTask, group: getGroup(updatedTask.dueDate || null, updatedTask.status) }
                         : t
                 )
             );
@@ -173,7 +180,7 @@ export default function TasksPage() {
         const taskToToggle = tasks.find(t => t.id === taskId);
         if (!taskToToggle) return;
 
-        const newStatus: TaskStatus = taskToToggle.status === "COMPLETED" ? "ACTIVE" : "COMPLETED";
+        const newStatus: NodeStatus = taskToToggle.status === NodeStatus.COMPLETED ? NodeStatus.ACTIVE : NodeStatus.COMPLETED;
         toggleCompleteMutation.mutate({ taskId, newStatus });
     };
 
@@ -251,104 +258,14 @@ export default function TasksPage() {
                                             onClick={(e) => handleTaskClick(task, e)}
                                         >
                                             {view === "list" ? (
-                                                <Card className={cn(
-                                                    "p-4 cursor-pointer hover:border-primary/30 transition-all group overflow-hidden relative",
-                                                    task.status === "COMPLETED" && "opacity-50",
-                                                    (task.aiGenerationStatus === "PENDING" || task.aiGenerationStatus === "PROCESSING") && "border-primary/20 bg-primary/[0.02]"
-                                                )}>
-                                                    {(task.aiGenerationStatus === "PENDING" || task.aiGenerationStatus === "PROCESSING") && (
-                                                        <motion.div
-                                                            initial={{ x: "-100%" }}
-                                                            animate={{ x: "100%" }}
-                                                            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                                                            className="absolute top-0 left-0 h-[1px] w-full bg-gradient-to-r from-transparent via-primary/50 to-transparent"
-                                                        />
-                                                    )}
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex items-center gap-4">
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleToggleComplete(task.id);
-                                                                    toast.success(
-                                                                        task.status === "COMPLETED"
-                                                                            ? "Task marked as incomplete"
-                                                                            : "Task completed!"
-                                                                    );
-                                                                }}
-                                                                className={cn(
-                                                                    "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all",
-                                                                    task.status === "COMPLETED" ? "bg-success border-success text-white" : "border-border hover:border-primary"
-                                                                )}
-                                                            >
-                                                                {task.status === "COMPLETED" && <CheckCircle2 size={14} />}
-                                                            </button>
-                                                            <div>
-                                                                <h3 className={cn("font-bold text-lg", task.status === "COMPLETED" && "line-through")}>{task.title}</h3>
-                                                                <div className="flex items-center gap-3 mt-1 text-xs font-medium text-text-secondary">
-                                                                    <span className="bg-surface-hover px-2 py-0.5 rounded-md text-text uppercase tracking-wider">{task.category || "General"}</span>
-                                                                    {(task.aiGenerationStatus === "PENDING" || task.aiGenerationStatus === "PROCESSING") ? (
-                                                                        <ThinkingIndicator className="mt-1" />
-                                                                    ) : (
-                                                                        <div className="flex items-center gap-1">
-                                                                            {task.aiSuggested && <Sparkles size={12} className="text-primary" />}
-                                                                            {task.subtaskCount || 0} subtasks
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-4">
-                                                            <div className={cn(
-                                                                "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border",
-                                                                task.priority === "HIGH" || task.priority === "URGENT" || task.priority === "MEDIUM"
-                                                                    ? "text-warning border-warning/20 bg-warning/5"
-                                                                    : task.priority === "LOW"
-                                                                        ? "text-info border-info/20 bg-info/5"
-                                                                        : "text-text-secondary border-border"
-                                                            )}>
-                                                                {task.priority.toLowerCase()}
-                                                            </div>
-                                                            <MoreVertical size={18} className="text-text-secondary opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Expanded content */}
-                                                    <AnimatePresence>
-                                                        {expandedTask === task.id && (
-                                                            <motion.div
-                                                                initial={{ height: 0, opacity: 0 }}
-                                                                animate={{ height: "auto", opacity: 1 }}
-                                                                exit={{ height: 0, opacity: 0 }}
-                                                                className="mt-6 pt-6 border-t border-border overflow-hidden"
-                                                            >
-                                                                <div className="grid grid-cols-2 gap-8">
-                                                                    <div className="space-y-4">
-                                                                        <h4 className="text-xs font-black uppercase tracking-widest text-text-secondary">AI Recommendation</h4>
-                                                                        <p className="text-sm font-medium leading-relaxed">Based on your current trajectory, completing this task will unblock <strong>4 other dependencies</strong>. High probability of flow state detected.</p>
-                                                                    </div>
-                                                                    <div className="space-y-4 text-right">
-                                                                        <h4 className="text-xs font-black uppercase tracking-widest text-text-secondary">Last Sync</h4>
-                                                                        <p className="text-sm font-medium">Today at 10:24 AM</p>
-                                                                    </div>
-                                                                </div>
-                                                                <div className="mt-6 flex justify-end gap-3">
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            setSelectedTaskId(task.id);
-                                                                            setIsDetailModalOpen(true);
-                                                                        }}
-                                                                    >
-                                                                        View Details
-                                                                    </Button>
-                                                                </div>
-                                                            </motion.div>
-                                                        )}
-                                                    </AnimatePresence>
-                                                </Card>
+                                                <TaskItem
+                                                    task={task}
+                                                    onToggleComplete={handleToggleComplete}
+                                                    onDetailsClick={(t) => {
+                                                        setSelectedTaskId(t.id);
+                                                        setIsDetailModalOpen(true);
+                                                    }}
+                                                />
                                             ) : (
                                                 <Card className="h-full flex flex-col justify-between hover:border-primary/30 transition-all group cursor-pointer">
                                                     <div>
@@ -356,7 +273,7 @@ export default function TasksPage() {
                                                             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-text-secondary opacity-60">{task.category || "General"}</span>
                                                             <div className={cn(
                                                                 "w-2 h-2 rounded-full",
-                                                                task.priority === "HIGH" || task.priority === "MEDIUM" || task.priority === "URGENT"
+                                                                task.priority === Priority.HIGH || task.priority === Priority.MEDIUM || task.priority === Priority.URGENT
                                                                     ? "bg-warning"
                                                                     : "bg-info"
                                                             )} />
@@ -366,9 +283,9 @@ export default function TasksPage() {
                                                     <div className="mt-8 pt-4 border-t border-border flex justify-between items-center text-xs font-bold text-text-secondary">
                                                         <div className="flex items-center gap-1">
                                                             {task.aiSuggested && <Sparkles size={12} className="text-primary" />}
-                                                            {task.subtaskCount || 0} Subtasks
+                                                            {task.children?.length || 0} Execution Steps
                                                         </div>
-                                                        <span className="uppercase tracking-widest">{task.status.toLowerCase()}</span>
+                                                        <span className="uppercase tracking-widest">{task.status?.toLowerCase() || 'active'}</span>
                                                     </div>
                                                 </Card>
                                             )}
@@ -393,14 +310,8 @@ export default function TasksPage() {
                         setSelectedTaskId(null);
                     }}
                     task={selectedTask ? {
-                        id: selectedTask.id,
-                        title: selectedTask.title,
+                        ...selectedTask,
                         category: selectedTask.category || "General",
-                        priority: selectedTask.priority as any,
-                        status: selectedTask.status as any,
-                        time: selectedTask.dueDate ? new Date(selectedTask.dueDate).toLocaleTimeString() : "Anytime",
-                        aiSuggested: selectedTask.aiSuggested,
-                        aiGenerationStatus: selectedTask.aiGenerationStatus,
                     } : null}
                     onToggleComplete={handleToggleComplete}
                 />

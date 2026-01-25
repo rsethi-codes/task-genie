@@ -14,25 +14,24 @@ import {
   Zap,
   Star,
   Loader2,
-  TrendingUp
+  TrendingUp,
+  AlertCircle
 } from "lucide-react";
+import { ThinkingIndicator } from "@/components/tasks/thinking-indicator";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { TaskCreationModal } from "@/components/tasks/task-creation-modal";
 import { TaskDetailModal } from "@/components/tasks/task-detail-modal";
 import { toast } from "sonner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSocket } from "@/components/providers/socket-provider";
 
-type Task = {
-  id: string;
-  title: string;
-  category: string | null;
-  dueDate: string | null;
-  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-  status: "DRAFT" | "ACTIVE" | "BLOCKED" | "COMPLETED" | "ARCHIVED";
+import { TaskItem } from "@/components/tasks/task-item";
+import { TaskNode, NodeStatus, NodeType, Priority, TemporalIntent } from "@/types/task-node";
+
+type Task = TaskNode & {
   completed: boolean; // Virtual property derived from status
-  aiSuggested?: boolean;
 };
 
 export default function Dashboard() {
@@ -42,6 +41,7 @@ export default function Dashboard() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
+  const { socket } = useSocket();
   const queryClient = useQueryClient();
 
   const tasksQuery = useQuery({
@@ -60,17 +60,35 @@ export default function Dashboard() {
       const data = await response.json();
       return data.map((t: any) => ({
         ...t,
-        completed: t.status === "COMPLETED"
+        completed: t.status === NodeStatus.COMPLETED
       })) as Task[];
-    },
-    refetchInterval: (query) => {
-      const data = query.state.data as Task[] | undefined;
-      const hasProcessingTasks = !!data?.some(t => (t as any).aiGenerationStatus === "PENDING" || (t as any).aiGenerationStatus === "PROCESSING");
-      return hasProcessingTasks ? 3000 : false;
     },
   });
 
-  const tasks = tasksQuery.data ?? [];
+  // Listen for real-time updates via Socket.IO
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleTaskUpdate = (payload: { taskId: string; status: string }) => {
+      console.log("[Socket] Task update received:", payload);
+      queryClient.invalidateQueries({ queryKey: ["tasks", user?.id] });
+
+      if (payload.status === 'READY') {
+        toast.success("Genie has finished generating subtasks!");
+      } else if (payload.status === 'FAILED') {
+        toast.error("Genie failed to generate subtasks.");
+      }
+    };
+
+    socket.on("task:status-updated", handleTaskUpdate);
+
+    return () => {
+      socket.off("task:status-updated", handleTaskUpdate);
+    };
+  }, [socket, user?.id, queryClient]);
+
+  // Ensure only top-level Goals are rendered in the main list
+  const tasks = (tasksQuery.data ?? []).filter(t => t.nodeType === NodeType.ROOT);
 
   const toggleCompleteMutation = useMutation({
     mutationFn: async ({ taskId, newStatus }: { taskId: string; newStatus: Task["status"] }) => {
@@ -93,7 +111,7 @@ export default function Dashboard() {
 
       queryClient.setQueryData(["tasks", user?.id], (prev: Task[] | undefined) =>
         (prev ?? []).map(t =>
-          t.id === taskId ? { ...t, status: newStatus, completed: newStatus === "COMPLETED" } : t
+          t.id === taskId ? { ...t, status: newStatus, completed: newStatus === NodeStatus.COMPLETED } : t
         )
       );
 
@@ -144,7 +162,7 @@ export default function Dashboard() {
   const handleTaskCreated = (newTask: any) => {
     const task: Task = {
       ...newTask,
-      completed: newTask.status === "COMPLETED"
+      completed: newTask.status === NodeStatus.COMPLETED
     };
     queryClient.setQueryData(["tasks", user?.id], (prev: Task[] | undefined) => [task, ...(prev ?? [])]);
   };
@@ -153,7 +171,7 @@ export default function Dashboard() {
     const taskToToggle = tasks.find(t => t.id === taskId);
     if (!taskToToggle) return;
 
-    const newStatus = taskToToggle.status === "COMPLETED" ? "ACTIVE" : "COMPLETED";
+    const newStatus = taskToToggle.status === NodeStatus.COMPLETED ? NodeStatus.ACTIVE : NodeStatus.COMPLETED;
     toggleCompleteMutation.mutate({ taskId, newStatus });
   };
 
@@ -309,17 +327,11 @@ export default function Dashboard() {
                 {tasks.map((task, index) => (
                   <TaskItem
                     key={task.id}
-                    id={task.id}
-                    title={task.title}
-                    category={task.category}
-                    dueDate={task.dueDate}
-                    priority={task.priority}
-                    completed={task.completed}
-                    aiSuggested={task.aiSuggested}
+                    task={task}
                     delay={index * 0.05}
                     onToggleComplete={handleToggleComplete}
-                    onDetailsClick={() => {
-                      setSelectedTask(task);
+                    onDetailsClick={(t) => {
+                      setSelectedTask(t as Task);
                       setIsDetailModalOpen(true);
                     }}
                   />
@@ -401,133 +413,13 @@ export default function Dashboard() {
           setSelectedTask(null);
         }}
         task={selectedTask ? {
-          id: selectedTask.id,
-          title: selectedTask.title,
+          ...selectedTask,
           category: selectedTask.category || "General",
-          priority: selectedTask.priority as any,
-          status: selectedTask.status as any,
-          time: selectedTask.dueDate ? new Date(selectedTask.dueDate).toLocaleTimeString() : "Anytime",
-          aiSuggested: selectedTask.aiSuggested,
         } : null}
         onToggleComplete={(taskId) => {
           handleToggleComplete(taskId);
         }}
       />
     </DashboardLayout>
-  );
-}
-
-function TaskItem({
-  id,
-  title,
-  category,
-  dueDate,
-  priority,
-  completed,
-  aiSuggested,
-  delay = 0,
-  onToggleComplete,
-  onDetailsClick,
-}: {
-  id: string;
-  title: string;
-  category: string | null;
-  dueDate: string | null;
-  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-  completed: boolean;
-  aiSuggested?: boolean;
-  delay?: number;
-  onToggleComplete?: (id: string) => void;
-  onDetailsClick?: () => void;
-}) {
-  const priorityColors = {
-    HIGH: "bg-warning",
-    MEDIUM: "bg-warning",
-    LOW: "bg-info",
-    URGENT: "bg-error",
-    high: "bg-warning", // Fallback
-    medium: "bg-warning",
-    low: "bg-info",
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-      whileHover={{ x: 2 }}
-      className={cn(
-        "group flex items-center justify-between p-5 rounded-xl border transition-all duration-200",
-        completed
-          ? "bg-surface/40 border-border/60 opacity-70"
-          : "bg-surface border-border/60 hover:border-primary/40 hover:shadow-sm"
-      )}
-    >
-      <div className="flex items-center gap-4 min-w-0 flex-1">
-        {/* Checkbox - Primary interaction */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleComplete?.(id);
-            toast.success(completed ? "Task marked as incomplete" : "Task completed!");
-          }}
-          className={cn(
-            "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0",
-            completed
-              ? "bg-success border-success text-white"
-              : "border-border hover:border-primary group-hover:scale-105"
-          )}
-          aria-label={completed ? `Mark "${title}" as incomplete` : `Mark "${title}" as complete`}
-        >
-          {completed && <CheckCircle2 size={12} />}
-        </button>
-
-        {/* Task content */}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-1.5">
-            <h4 className={cn(
-              "font-semibold text-base leading-tight truncate",
-              completed && "line-through text-text-secondary"
-            )}>
-              {title}
-            </h4>
-            {aiSuggested && (
-              <Sparkles size={12} className="text-primary shrink-0" aria-label="AI suggested" />
-            )}
-          </div>
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <span className="text-[10px] font-bold text-text-secondary/70 uppercase tracking-wider px-2 py-0.5 rounded-md bg-surface-hover/60">
-              {category || "General"}
-            </span>
-            <div className="flex items-center gap-1.5 text-xs text-text-secondary/70">
-              <Clock size={11} />
-              <span>{dueDate ? new Date(dueDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Anytime"}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Priority indicator and details - Subtle */}
-      <div className="flex items-center gap-3 ml-4 shrink-0">
-        <div
-          className={cn(
-            "w-1.5 h-1.5 rounded-full",
-            priorityColors[priority]
-          )}
-          aria-label={`Priority: ${priority}`}
-        />
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDetailsClick?.();
-          }}
-          className="opacity-0 group-hover:opacity-60 hover:opacity-100 transition-opacity text-xs px-2"
-        >
-          Details
-        </Button>
-      </div>
-    </motion.div>
   );
 }
