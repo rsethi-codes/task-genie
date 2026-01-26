@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/core";
-import { Sparkles, Loader2, Calendar, Tag, ChevronRight, Check, Wand2 } from "lucide-react";
+import { Sparkles, Loader2, Calendar, Tag, ChevronRight, Check, Wand2, Clock } from "lucide-react";
 import { ThinkingIndicator } from "./thinking-indicator";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
@@ -39,6 +39,8 @@ export function TaskCreationModal({
     reasoning?: string;
   } | null>(null);
 
+  const [estimatedDuration, setEstimatedDuration] = useState<number | "">("");
+
   // States for "Blooming UI"
   const [isFocused, setIsFocused] = useState(false);
   const [hasInteractedWithDesc, setHasInteractedWithDesc] = useState(false);
@@ -66,6 +68,7 @@ export function TaskCreationModal({
           if (!hasInteractedWithDesc && data.description) setDescription(data.description);
           if (data.priority) setPriority(data.priority);
           if (data.category) setCategory(data.category);
+          if (data.estimatedDuration) setEstimatedDuration(data.estimatedDuration);
           if (data.dueDate) {
             setDueDate(new Date(data.dueDate).toISOString().split('T')[0]);
           }
@@ -111,6 +114,7 @@ export function TaskCreationModal({
           category: category || "General",
           priority,
           dueDate: dueDate ? new Date(dueDate).toISOString() : null,
+          estimatedDuration: estimatedDuration === "" ? undefined : Number(estimatedDuration),
           status: "ACTIVE",
           nodeType: "ROOT", // Default to ROOT for new user tasks from this modal
           idempotencyKey: uuidv4(),
@@ -266,6 +270,20 @@ export function TaskCreationModal({
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
                     className="w-full bg-surface/20 border border-border/30 rounded-xl px-3 py-2 text-sm focus:border-primary/50 outline-none transition-all"
+                  />
+                </div>
+
+                {/* Duration Pill */}
+                <div className="flex-1 min-w-[140px]">
+                  <div className="flex items-center gap-1.5 text-[10px] font-black text-text-secondary/50 mb-2 uppercase tracking-[0.2em]">
+                    <Clock size={12} className="opacity-50" /> Duration (min)
+                  </div>
+                  <input
+                    type="number"
+                    value={estimatedDuration}
+                    onChange={(e) => setEstimatedDuration(e.target.value === "" ? "" : Number(e.target.value))}
+                    placeholder="45"
+                    className="w-full bg-surface/20 border border-border/30 rounded-xl px-3 py-2 text-sm focus:border-primary/50 outline-none transition-all placeholder:text-text-secondary/20"
                   />
                 </div>
               </div>

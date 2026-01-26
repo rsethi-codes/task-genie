@@ -5,6 +5,7 @@ import { ReactNode, useState } from 'react'
 import { Toaster } from '@/components/ui/sonner'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SocketProvider } from '@/components/providers/socket-provider'
+import { ClientSideInit } from '@/components/client-side-init'
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -32,6 +33,7 @@ export function Providers({ children }: { children: ReactNode }) {
           disableTransitionOnChange={false}
           storageKey="task-genie-theme"
         >
+          <ClientSideInit />
           {children}
           <Toaster />
         </ThemeProvider>

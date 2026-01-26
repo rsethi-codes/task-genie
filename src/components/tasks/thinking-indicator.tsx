@@ -5,15 +5,14 @@ import { Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 
 const THINKING_MESSAGES = [
-    "Manifesting the steps... ✨",
-    "Cooking up a plan 🧠",
-    "Breaking this into bite-sized wins... 🍪",
-    "De-mystifying the grind... 🌪️",
-    "Plotting your success arc... 📈",
-    "Vibing with your productivity... 🌊",
-    "Organizing the chaos... 🫧",
-    "Structuring your momentum... ⚡",
-    "Assembling the dream... 🛠️",
+    "Thinking through the best path... 🌿",
+    "Breaking this down gently... 💧",
+    "Finding a clear starting point... 🔭",
+    "Organizing the next steps... 📝",
+    "Structuring the goal... 🧱",
+    "Making this manageable... 🕯️",
+    "Sorting out the details... 🍃",
+    "Almost ready for you... ✨",
 ];
 
 export function ThinkingIndicator({ className }: { className?: string }) {
