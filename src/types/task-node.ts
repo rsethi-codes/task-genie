@@ -36,6 +36,20 @@ export enum Priority {
     URGENT = 'URGENT'
 }
 
+export enum ComplexityLevel {
+    L0 = 'L0',
+    L1 = 'L1',
+    L2 = 'L2',
+    L3 = 'L3'
+}
+
+export interface TaskComplexity {
+    level: ComplexityLevel;
+    confidenceScore: number;
+    reasoning: string;
+    decidedAt: string;
+}
+
 export interface TaskNode {
     id: string;
     userId: string;
@@ -72,4 +86,6 @@ export interface TaskNode {
 
     // Legacy mapping (optional, for smoother migration)
     subtasks?: TaskNode[];
+
+    complexity?: TaskComplexity;
 }
