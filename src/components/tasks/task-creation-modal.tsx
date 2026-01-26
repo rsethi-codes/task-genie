@@ -11,6 +11,7 @@ import debounce from "lodash/debounce";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@clerk/nextjs";
 import { motion, AnimatePresence } from "framer-motion";
+import { AdaptiveQuestionnaire } from "./adaptive-questionnaire";
 
 interface TaskCreationModalProps {
   isOpen: boolean;
@@ -46,6 +47,7 @@ export function TaskCreationModal({
     reasoning: string;
   } | null>(null);
   const [isClassifying, setIsClassifying] = useState(false);
+  const [createdTaskId, setCreatedTaskId] = useState<string | null>(null);
 
   // States for "Blooming UI"
   const [isFocused, setIsFocused] = useState(false);
@@ -172,13 +174,15 @@ export function TaskCreationModal({
       const newTask = await response.json();
       onTaskCreated?.(newTask);
 
-      toast.success("Task captured. Setting things in motion...", {
-        icon: <Sparkles className="text-primary w-4 h-4" />,
-      });
-
-      // Reset & Close
-      handleReset();
-      onClose();
+      if (complexity?.level === "L2" || complexity?.level === "L3") {
+        setCreatedTaskId(newTask.id);
+      } else {
+        toast.success("Task captured. Setting things in motion...", {
+          icon: <Sparkles className="text-primary w-4 h-4" />,
+        });
+        handleReset();
+        onClose();
+      }
     } catch (error) {
       console.error(error);
       toast.error("Something went wrong on my end. Try again?");
@@ -211,236 +215,250 @@ export function TaskCreationModal({
       showCloseButton={false}
     >
       <div className="p-2">
-        <div className="relative mb-6">
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onFocus={() => setIsFocused(true)}
-            placeholder="What's on your mind?"
-            className="w-full bg-transparent text-2xl md:text-3xl font-medium text-text placeholder:text-text-secondary/30 border-none outline-none py-2 transition-all"
-            autoFocus
+        {createdTaskId ? (
+          <AdaptiveQuestionnaire
+            taskId={createdTaskId}
+            onComplete={() => {
+              toast.success("All set! I'm creating your plan now.");
+              handleReset();
+              setCreatedTaskId(null);
+              onClose();
+            }}
           />
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-3">
-            {isEnriching && (
-              <motion.div
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
-                className="flex items-center gap-2 pr-2"
-              >
-                <ThinkingIndicator className="scale-75 origin-right" />
-                <span className="text-[10px] font-black uppercase tracking-[0.1em] text-primary/40 whitespace-nowrap">
-                  {isEnriching ? "Genie is analyzing" : isClassifying ? "Assessing complexity" : ""}
-                </span>
-              </motion.div>
-            )}
-            {!isEnriching && !isClassifying && complexity && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className={cn(
-                  "px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border",
-                  complexity.level === "L0" ? "bg-green-500/10 text-green-500 border-green-500/20" :
-                    complexity.level === "L1" ? "bg-blue-500/10 text-blue-500 border-blue-500/20" :
-                      complexity.level === "L2" ? "bg-amber-500/10 text-amber-500 border-amber-500/20" :
-                        "bg-purple-500/10 text-purple-500 border-purple-500/20"
+        ) : (
+          <>
+            <div className="relative mb-6">
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                onFocus={() => setIsFocused(true)}
+                placeholder="What's on your mind?"
+                className="w-full bg-transparent text-2xl md:text-3xl font-medium text-text placeholder:text-text-secondary/30 border-none outline-none py-2 transition-all"
+                autoFocus
+              />
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-3">
+                {isEnriching && (
+                  <motion.div
+                    initial={{ opacity: 0, x: 10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 10 }}
+                    className="flex items-center gap-2 pr-2"
+                  >
+                    <ThinkingIndicator className="scale-75 origin-right" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.1em] text-primary/40 whitespace-nowrap">
+                      {isEnriching ? "Genie is analyzing" : isClassifying ? "Assessing complexity" : ""}
+                    </span>
+                  </motion.div>
                 )}
-              >
-                {complexity.level}
-              </motion.div>
-            )}
-            {title.length > 0 && !isSubmitting && (
-              <motion.button
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                onClick={() => handleSubmit()}
-                className="bg-primary text-white p-2 rounded-full shadow-lg shadow-primary/20 hover:scale-110 transition-transform"
-              >
-                <ChevronRight size={20} />
-              </motion.button>
-            )}
-          </div>
-        </div>
-
-        <AnimatePresence>
-          {showAdditionalFields && (
-            <motion.div
-              initial={{ opacity: 0, y: 10, height: 0 }}
-              animate={{ opacity: 1, y: 0, height: "auto" }}
-              exit={{ opacity: 0, y: 10, height: 0 }}
-              transition={{ duration: 0.4, ease: "easeOut" }}
-              className="space-y-6 overflow-hidden"
-            >
-              {/* Context / Description */}
-              <div className="group">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-text-secondary/50 group-hover:text-primary transition-colors">
-                    Want to add more detail?
-                  </label>
-                  {aiSuggestions?.description && !hasInteractedWithDesc && (
-                    <motion.span
-                      initial={{ opacity: 0, x: 5 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      className="text-[10px] text-primary/60 flex items-center gap-1 italic"
-                    >
-                      <Sparkles size={10} /> Genie drafted this
-                    </motion.span>
-                  )}
-                </div>
-                <textarea
-                  value={description}
-                  onChange={(e) => {
-                    setDescription(e.target.value);
-                    setHasInteractedWithDesc(true);
-                  }}
-                  placeholder="Context is optional, but helpful..."
-                  className={cn(
-                    "w-full bg-surface/30 backdrop-blur-sm border border-border/30 rounded-2xl px-4 py-3 text-sm focus:border-primary/50 transition-all outline-none min-h-[90px] resize-none",
-                    !hasInteractedWithDesc && aiSuggestions?.description && "text-text/50 italic"
-                  )}
-                />
+                {!isEnriching && !isClassifying && complexity && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className={cn(
+                      "px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border",
+                      complexity.level === "L0" ? "bg-green-500/10 text-green-500 border-green-500/20" :
+                        complexity.level === "L1" ? "bg-blue-500/10 text-blue-500 border-blue-500/20" :
+                          complexity.level === "L2" ? "bg-amber-500/10 text-amber-500 border-amber-500/20" :
+                            "bg-purple-500/10 text-purple-500 border-purple-500/20"
+                    )}
+                  >
+                    {complexity.level}
+                  </motion.div>
+                )}
+                {title.length > 0 && !isSubmitting && (
+                  <motion.button
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    onClick={() => handleSubmit()}
+                    className="bg-primary text-white p-2 rounded-full shadow-lg shadow-primary/20 hover:scale-110 transition-transform"
+                  >
+                    <ChevronRight size={20} />
+                  </motion.button>
+                )}
               </div>
+            </div>
 
-              {/* Metadata Pills */}
-              <div className="flex flex-wrap gap-4">
-                {/* Category Pill */}
-                <div className="flex-1 min-w-[140px]">
-                  <div className="flex items-center gap-1.5 text-[10px] font-black text-text-secondary/50 mb-2 uppercase tracking-[0.2em]">
-                    <Tag size={12} className="opacity-50" /> Label
-                  </div>
-                  <input
-                    type="text"
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    placeholder="General"
-                    className="w-full bg-surface/20 border border-border/30 rounded-xl px-3 py-2 text-sm focus:border-primary/50 outline-none transition-all placeholder:text-text-secondary/20"
-                  />
-                </div>
-
-                {/* Due Date Pill */}
-                <div className="flex-1 min-w-[140px]">
-                  <div className="flex items-center gap-1.5 text-[10px] font-black text-text-secondary/50 mb-2 uppercase tracking-[0.2em]">
-                    <Calendar size={12} className="opacity-50" /> Timeline
-                  </div>
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full bg-surface/20 border border-border/30 rounded-xl px-3 py-2 text-sm focus:border-primary/50 outline-none transition-all"
-                  />
-                </div>
-
-                {/* Duration Pill */}
-                <div className="flex-1 min-w-[140px]">
-                  <div className="flex items-center gap-1.5 text-[10px] font-black text-text-secondary/50 mb-2 uppercase tracking-[0.2em]">
-                    <Clock size={12} className="opacity-50" /> Duration (min)
-                  </div>
-                  <input
-                    type="number"
-                    value={estimatedDuration}
-                    onChange={(e) => setEstimatedDuration(e.target.value === "" ? "" : Number(e.target.value))}
-                    placeholder="45"
-                    className="w-full bg-surface/20 border border-border/30 rounded-xl px-3 py-2 text-sm focus:border-primary/50 outline-none transition-all placeholder:text-text-secondary/20"
-                  />
-                </div>
-              </div>
-
-              {/* Priority - Subtle Visual Indicators */}
-              <div>
-                <div className="text-[10px] font-black text-text-secondary/50 mb-3 uppercase tracking-[0.2em]">
-                  Focus Energy
-                </div>
-                <div className="flex gap-2">
-                  {(["LOW", "MEDIUM", "HIGH"] as const).map((p) => {
-                    const isActive = priority === p;
-                    const configs = {
-                      LOW: { color: "bg-info/30 text-info", border: "border-info/20", label: "Steady" },
-                      MEDIUM: { color: "bg-primary/30 text-primary", border: "border-primary/20", label: "Balanced" },
-                      HIGH: { color: "bg-warning/30 text-warning", border: "border-warning/20", label: "Intense" }
-                    };
-                    return (
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => setPriority(p)}
-                        className={cn(
-                          "flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-xl border transition-all duration-300",
-                          isActive
-                            ? `${configs[p].color} ${configs[p].border} shadow-sm scale-[1.02]`
-                            : "bg-surface/10 border-border/20 text-text-secondary/60 hover:bg-surface/20 hover:border-border/40"
-                        )}
-                      >
-                        <span className="text-[10px] font-black uppercase tracking-tighter">
-                          {configs[p].label}
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* Footer / Info */}
-              {aiSuggestions?.reasoning && (
+            <AnimatePresence>
+              {showAdditionalFields && (
                 <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="bg-primary/5 rounded-xl p-3 border border-primary/10"
+                  initial={{ opacity: 0, y: 10, height: 0 }}
+                  animate={{ opacity: 1, y: 0, height: "auto" }}
+                  exit={{ opacity: 0, y: 10, height: 0 }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
+                  className="space-y-6 overflow-hidden"
                 >
-                  <p className="text-[11px] text-primary/70 leading-relaxed italic flex items-start gap-2">
-                    <Sparkles size={12} className="mt-0.5 shrink-0" />
-                    <span>Persona Insight: {aiSuggestions.reasoning}</span>
-                  </p>
+                  {/* Context / Description */}
+                  <div className="group">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-text-secondary/50 group-hover:text-primary transition-colors">
+                        Want to add more detail?
+                      </label>
+                      {aiSuggestions?.description && !hasInteractedWithDesc && (
+                        <motion.span
+                          initial={{ opacity: 0, x: 5 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          className="text-[10px] text-primary/60 flex items-center gap-1 italic"
+                        >
+                          <Sparkles size={10} /> Genie drafted this
+                        </motion.span>
+                      )}
+                    </div>
+                    <textarea
+                      value={description}
+                      onChange={(e) => {
+                        setDescription(e.target.value);
+                        setHasInteractedWithDesc(true);
+                      }}
+                      placeholder="Context is optional, but helpful..."
+                      className={cn(
+                        "w-full bg-surface/30 backdrop-blur-sm border border-border/30 rounded-2xl px-4 py-3 text-sm focus:border-primary/50 transition-all outline-none min-h-[90px] resize-none",
+                        !hasInteractedWithDesc && aiSuggestions?.description && "text-text/50 italic"
+                      )}
+                    />
+                  </div>
+
+                  {/* Metadata Pills */}
+                  <div className="flex flex-wrap gap-4">
+                    {/* Category Pill */}
+                    <div className="flex-1 min-w-[140px]">
+                      <div className="flex items-center gap-1.5 text-[10px] font-black text-text-secondary/50 mb-2 uppercase tracking-[0.2em]">
+                        <Tag size={12} className="opacity-50" /> Label
+                      </div>
+                      <input
+                        type="text"
+                        value={category}
+                        onChange={(e) => setCategory(e.target.value)}
+                        placeholder="General"
+                        className="w-full bg-surface/20 border border-border/30 rounded-xl px-3 py-2 text-sm focus:border-primary/50 outline-none transition-all placeholder:text-text-secondary/20"
+                      />
+                    </div>
+
+                    {/* Due Date Pill */}
+                    <div className="flex-1 min-w-[140px]">
+                      <div className="flex items-center gap-1.5 text-[10px] font-black text-text-secondary/50 mb-2 uppercase tracking-[0.2em]">
+                        <Calendar size={12} className="opacity-50" /> Timeline
+                      </div>
+                      <input
+                        type="date"
+                        value={dueDate}
+                        onChange={(e) => setDueDate(e.target.value)}
+                        className="w-full bg-surface/20 border border-border/30 rounded-xl px-3 py-2 text-sm focus:border-primary/50 outline-none transition-all"
+                      />
+                    </div>
+
+                    {/* Duration Pill */}
+                    <div className="flex-1 min-w-[140px]">
+                      <div className="flex items-center gap-1.5 text-[10px] font-black text-text-secondary/50 mb-2 uppercase tracking-[0.2em]">
+                        <Clock size={12} className="opacity-50" /> Duration (min)
+                      </div>
+                      <input
+                        type="number"
+                        value={estimatedDuration}
+                        onChange={(e) => setEstimatedDuration(e.target.value === "" ? "" : Number(e.target.value))}
+                        placeholder="45"
+                        className="w-full bg-surface/20 border border-border/30 rounded-xl px-3 py-2 text-sm focus:border-primary/50 outline-none transition-all placeholder:text-text-secondary/20"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Priority - Subtle Visual Indicators */}
+                  <div>
+                    <div className="text-[10px] font-black text-text-secondary/50 mb-3 uppercase tracking-[0.2em]">
+                      Focus Energy
+                    </div>
+                    <div className="flex gap-2">
+                      {(["LOW", "MEDIUM", "HIGH"] as const).map((p) => {
+                        const isActive = priority === p;
+                        const configs = {
+                          LOW: { color: "bg-info/30 text-info", border: "border-info/20", label: "Steady" },
+                          MEDIUM: { color: "bg-primary/30 text-primary", border: "border-primary/20", label: "Balanced" },
+                          HIGH: { color: "bg-warning/30 text-warning", border: "border-warning/20", label: "Intense" }
+                        };
+                        return (
+                          <button
+                            key={p}
+                            type="button"
+                            onClick={() => setPriority(p)}
+                            className={cn(
+                              "flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-xl border transition-all duration-300",
+                              isActive
+                                ? `${configs[p].color} ${configs[p].border} shadow-sm scale-[1.02]`
+                                : "bg-surface/10 border-border/20 text-text-secondary/60 hover:bg-surface/20 hover:border-border/40"
+                            )}
+                          >
+                            <span className="text-[10px] font-black uppercase tracking-tighter">
+                              {configs[p].label}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Footer / Info */}
+                  {aiSuggestions?.reasoning && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="bg-primary/5 rounded-xl p-3 border border-primary/10"
+                    >
+                      <p className="text-[11px] text-primary/70 leading-relaxed italic flex items-start gap-2">
+                        <Sparkles size={12} className="mt-0.5 shrink-0" />
+                        <span>Persona Insight: {aiSuggestions.reasoning}</span>
+                      </p>
+                    </motion.div>
+                  )}
+
+                  <div className="pt-4 flex gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={onClose}
+                      className="flex-1 rounded-2xl border-none bg-surface/30 hover:bg-surface/50 transition-colors"
+                    >
+                      Not now
+                    </Button>
+                    <Button
+                      onClick={() => handleSubmit()}
+                      variant="ai"
+                      disabled={isSubmitting || !title.trim()}
+                      className="flex-[2] rounded-2xl shadow-xl shadow-primary/10 relative overflow-hidden group"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-white/10 to-primary/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                      {isSubmitting ? (
+                        <div className="flex items-center gap-3">
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                          >
+                            <Sparkles size={18} className="text-white" />
+                          </motion.div>
+                          <span className="font-bold tracking-tight">Manifesting...</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center gap-2">
+                          <span>{complexity?.level === 'L2' || complexity?.level === 'L3' ? 'Launch Questionnaire' : 'Capture Task'}</span>
+                          <motion.div
+                            animate={{ x: [0, 4, 0] }}
+                            transition={{ repeat: Infinity, duration: 1.5 }}
+                          >
+                            <ChevronRight size={18} />
+                          </motion.div>
+                        </div>
+                      )}
+                    </Button>
+                  </div>
+                  {complexity?.level && (complexity.level === 'L2' || complexity.level === 'L3') && (
+                    <p className="text-[10px] text-center text-text-secondary/50 font-medium">
+                      This looks like a significant goal. We'll start with a few questions to help me understand your vision.
+                    </p>
+                  )}
                 </motion.div>
               )}
-
-              <div className="pt-4 flex gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onClose}
-                  className="flex-1 rounded-2xl border-none bg-surface/30 hover:bg-surface/50 transition-colors"
-                >
-                  Not now
-                </Button>
-                <Button
-                  onClick={() => handleSubmit()}
-                  variant="ai"
-                  disabled={isSubmitting || !title.trim()}
-                  className="flex-[2] rounded-2xl shadow-xl shadow-primary/10 relative overflow-hidden group"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-white/10 to-primary/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-                  {isSubmitting ? (
-                    <div className="flex items-center gap-3">
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                      >
-                        <Sparkles size={18} className="text-white" />
-                      </motion.div>
-                      <span className="font-bold tracking-tight">Manifesting...</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center gap-2">
-                      <span>{complexity?.level === 'L2' || complexity?.level === 'L3' ? 'Launch Questionnaire' : 'Capture Task'}</span>
-                      <motion.div
-                        animate={{ x: [0, 4, 0] }}
-                        transition={{ repeat: Infinity, duration: 1.5 }}
-                      >
-                        <ChevronRight size={18} />
-                      </motion.div>
-                    </div>
-                  )}
-                </Button>
-              </div>
-              {complexity?.level && (complexity.level === 'L2' || complexity.level === 'L3') && (
-                <p className="text-[10px] text-center text-text-secondary/50 font-medium">
-                  This looks like a significant goal. We'll start with a few questions to help me understand your vision.
-                </p>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </AnimatePresence>
+          </>
+        )}
       </div>
     </Modal>
   );
