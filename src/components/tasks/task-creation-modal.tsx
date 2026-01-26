@@ -40,6 +40,12 @@ export function TaskCreationModal({
   } | null>(null);
 
   const [estimatedDuration, setEstimatedDuration] = useState<number | "">("");
+  const [complexity, setComplexity] = useState<{
+    level: "L0" | "L1" | "L2" | "L3";
+    confidenceScore: number;
+    reasoning: string;
+  } | null>(null);
+  const [isClassifying, setIsClassifying] = useState(false);
 
   // States for "Blooming UI"
   const [isFocused, setIsFocused] = useState(false);
@@ -82,13 +88,44 @@ export function TaskCreationModal({
     [hasInteractedWithDesc]
   );
 
+  const fetchClassification = useCallback(
+    debounce(async (title: string, token: string) => {
+      if (!title || title.length < 5) return;
+
+      setIsClassifying(true);
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_API_URL}/tasks/classify`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ title }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setComplexity(data);
+        }
+      } catch (error) {
+        console.error("Classification failed", error);
+      } finally {
+        setIsClassifying(false);
+      }
+    }, 1500),
+    []
+  );
+
   useEffect(() => {
     if (title && title.length >= 5 && !isSubmitting) {
       getToken().then(token => {
-        if (token) fetchEnrichment(title, token);
+        if (token) {
+          fetchEnrichment(title, token);
+          fetchClassification(title, token);
+        }
       });
     }
-  }, [title, getToken, fetchEnrichment, isSubmitting]);
+  }, [title, getToken, fetchEnrichment, fetchClassification, isSubmitting]);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -118,6 +155,11 @@ export function TaskCreationModal({
           status: "ACTIVE",
           nodeType: "ROOT", // Default to ROOT for new user tasks from this modal
           idempotencyKey: uuidv4(),
+          complexity: complexity ? {
+            level: complexity.level,
+            confidenceScore: complexity.confidenceScore,
+            reasoning: complexity.reasoning
+          } : undefined,
           aiMetadata: aiSuggestions ? {
             reasoning: aiSuggestions.reasoning,
             suggestions: aiSuggestions
@@ -152,6 +194,7 @@ export function TaskCreationModal({
     setPriority("MEDIUM");
     setDueDate("");
     setAiSuggestions(null);
+    setComplexity(null);
     setHasInteractedWithDesc(false);
   };
 
@@ -188,8 +231,23 @@ export function TaskCreationModal({
               >
                 <ThinkingIndicator className="scale-75 origin-right" />
                 <span className="text-[10px] font-black uppercase tracking-[0.1em] text-primary/40 whitespace-nowrap">
-                  Genie is analyzing
+                  {isEnriching ? "Genie is analyzing" : isClassifying ? "Assessing complexity" : ""}
                 </span>
+              </motion.div>
+            )}
+            {!isEnriching && !isClassifying && complexity && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className={cn(
+                  "px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border",
+                  complexity.level === "L0" ? "bg-green-500/10 text-green-500 border-green-500/20" :
+                    complexity.level === "L1" ? "bg-blue-500/10 text-blue-500 border-blue-500/20" :
+                      complexity.level === "L2" ? "bg-amber-500/10 text-amber-500 border-amber-500/20" :
+                        "bg-purple-500/10 text-purple-500 border-purple-500/20"
+                )}
+              >
+                {complexity.level}
               </motion.div>
             )}
             {title.length > 0 && !isSubmitting && (
@@ -351,6 +409,7 @@ export function TaskCreationModal({
                   disabled={isSubmitting || !title.trim()}
                   className="flex-[2] rounded-2xl shadow-xl shadow-primary/10 relative overflow-hidden group"
                 >
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-white/10 to-primary/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
                   {isSubmitting ? (
                     <div className="flex items-center gap-3">
                       <motion.div
@@ -363,7 +422,7 @@ export function TaskCreationModal({
                     </div>
                   ) : (
                     <div className="flex items-center justify-center gap-2">
-                      <span>Capture Task</span>
+                      <span>{complexity?.level === 'L2' || complexity?.level === 'L3' ? 'Launch Questionnaire' : 'Capture Task'}</span>
                       <motion.div
                         animate={{ x: [0, 4, 0] }}
                         transition={{ repeat: Infinity, duration: 1.5 }}
@@ -374,6 +433,11 @@ export function TaskCreationModal({
                   )}
                 </Button>
               </div>
+              {complexity?.level && (complexity.level === 'L2' || complexity.level === 'L3') && (
+                <p className="text-[10px] text-center text-text-secondary/50 font-medium">
+                  This looks like a significant goal. We'll start with a few questions to help me understand your vision.
+                </p>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
