@@ -309,11 +309,7 @@ export default function TasksPage() {
                         setIsDetailModalOpen(false);
                         setSelectedTaskId(null);
                     }}
-                    task={selectedTask ? {
-                        ...selectedTask,
-                        category: selectedTask.category || "General",
-                    } : null}
-                    onToggleComplete={handleToggleComplete}
+                    taskId={selectedTaskId}
                 />
             </div>
         </DashboardLayout>

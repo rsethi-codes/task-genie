@@ -1,8 +1,7 @@
-import { config } from "dotenv";
 import { z } from "zod";
 
-// Load .env file into process.env
-config();
+// Check environment context
+const isServer = typeof window === "undefined";
 
 // 🧩 Define schemas for logical sections
 const appSchema = z.object({
@@ -10,21 +9,21 @@ const appSchema = z.object({
     .enum(["development", "production", "test"])
     .default("development"),
   PORT: z.coerce.number().default(5000),
-  SIGN_IN_URL: z.string().min(1, "SIGN_IN_URL is required"),
-  SIGN_UP_URL: z.string().min(1, "SIGN_UP_URL is required"),
+  SIGN_IN_URL: z.string().optional(), // Allow optional on client to avoid blocking if not needed immediately, or keep strict if strictly needed
+  SIGN_UP_URL: z.string().optional(),
 });
 
 const apiSchema = z.object({
   BASE_API_URL: z.string().min(1, "BASE_API_URL is required"),
-  GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
+  GEMINI_API_KEY: isServer ? z.string().min(1, "GEMINI_API_KEY is required") : z.string().optional(),
 });
 
 const authSchema = z.object({
   CLERK_PUBLISHABLE_KEY: z.string().min(1, "CLERK_PUBLISHABLE_KEY is required"),
-  CLERK_SECRET_KEY: z.string().min(1, "CLERK_SECRET_KEY is required"),
-  CLERK_WEBHOOK_SIGNING_SECRET: z
-    .string()
-    .min(1, "CLERK_WEBHOOK_SIGNING_SECRET is required"),
+  CLERK_SECRET_KEY: isServer ? z.string().min(1, "CLERK_SECRET_KEY is required") : z.string().optional(),
+  CLERK_WEBHOOK_SIGNING_SECRET: isServer
+    ? z.string().min(1, "CLERK_WEBHOOK_SIGNING_SECRET is required")
+    : z.string().optional(),
 });
 
 // 🧠 Combine all schemas
@@ -38,6 +37,8 @@ const envSchema = z.object({
 const parseEnv = () => {
   try {
     // Flatten process.env into sections
+    // Note: Next.js only inlines process.env properties starting with NEXT_PUBLIC_ on the client.
+    // For server-only props, they might be undefined on client, which is fine with isServer check.
     const rawEnv = {
       app: {
         NODE_ENV: process.env.NODE_ENV,
@@ -64,7 +65,8 @@ const parseEnv = () => {
         console.error(`  - ${issue.path.join(".")}: ${issue.message}`);
       });
     }
-    process.exit(1);
+    // Don't kill process on client, just throw
+    throw new Error("Invalid environment configuration");
   }
 };
 

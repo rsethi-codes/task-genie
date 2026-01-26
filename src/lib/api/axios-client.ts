@@ -6,8 +6,6 @@ import axios, {
 } from "axios";
 import { handleApiError, ErrorType } from "@/lib/api/error-handler";
 import { env } from "@/config/env";
-import { auth } from "@clerk/nextjs/server";
-
 const api = axios.create({
   baseURL: env.api.BASE_API_URL,
   timeout: 15000,
@@ -15,14 +13,6 @@ const api = axios.create({
     "Content-Type": "application/json",
   },
 });
-
-// Server-side auth header helper
-async function getServerAuthHeaders() {
-  const { getToken } = await auth();
-  const token = await getToken({ template: "default" });
-  if (!token) throw new Error("User not authenticated");
-  return { Authorization: `Bearer ${token}` };
-}
 
 // --- Error Interceptor ---
 api.interceptors.response.use(
@@ -58,8 +48,8 @@ export async function request<T = unknown>(
 
   let headers = config.headers;
   if (isAuthenticated) {
-    const authHeaders = await getServerAuthHeaders();
-    headers = { ...headers, ...authHeaders };
+    console.warn("axios-client: isAuthenticated=true is deprecated for client-side usage. Please pass token manually via headers.");
+    // We cannot get server auth headers here anymore.
   }
 
   return api.request<T>({

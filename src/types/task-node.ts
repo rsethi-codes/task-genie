@@ -55,7 +55,8 @@ export interface TaskNode {
     aiMetadata: any;
     progressMeta: any;
     temporalIntent: TemporalIntent;
-    dueDate?: string | null; // Added dueDate
+    dueDate?: string | null;
+    actualDuration?: number; // Added actualDuration (PART 1 fix)
     createdAt: string;
     updatedAt: string;
     deletedAt: string | null;

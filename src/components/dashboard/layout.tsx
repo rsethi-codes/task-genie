@@ -24,6 +24,7 @@ import { ThemeSwitcher } from "@/components/theme-switcher";
 import { UserButton, SignOutButton } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
 import { AIChat } from "./ai-chat";
+import { CheckInModal } from "@/components/check-in/CheckInModal";
 
 interface DashboardLayoutProps {
     children: ReactNode;
@@ -38,6 +39,7 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const [isCheckInOpen, setIsCheckInOpen] = useState(false);
 
     const handleSearch = (e: KeyboardEvent<HTMLInputElement>) => {
         if (e.key === "Enter" && searchQuery.trim()) {
@@ -69,7 +71,7 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
             {/* Sidebar */}
             <motion.aside
                 initial={{ width: 280 }}
-                animate={{ 
+                animate={{
                     width: isCollapsed ? 80 : 280,
                     x: isMobileMenuOpen ? 0 : (typeof window !== "undefined" && window.innerWidth < 1024 ? -280 : 0)
                 }}
@@ -105,8 +107,8 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
                     {sidebarLinks.map((link) => {
                         const isActive = pathname === link.href;
                         return (
-                            <Link 
-                                key={link.href} 
+                            <Link
+                                key={link.href}
                                 href={link.href}
                                 onClick={() => setIsMobileMenuOpen(false)}
                             >
@@ -126,6 +128,22 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
                         );
                     })}
                 </nav>
+
+                <div className="px-4 mt-4">
+                    <button
+                        onClick={() => setIsCheckInOpen(true)}
+                        className={cn(
+                            "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary font-bold shadow-sm group",
+                            isCollapsed && "justify-center px-0"
+                        )}
+                    >
+                        <div className="bg-primary/20 p-1.5 rounded-lg group-hover:scale-110 transition-transform">
+                            <Sparkles size={18} fill="currentColor" />
+                        </div>
+                        {!isCollapsed && <span>Help Me Decide</span>}
+                    </button>
+                </div>
+
 
                 <div className="p-4 border-t border-border space-y-4">
                     {!isCollapsed && (
@@ -203,6 +221,7 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
                 </div>
             </main>
             <AIChat />
+            <CheckInModal isOpen={isCheckInOpen} onClose={() => setIsCheckInOpen(false)} />
         </div>
     );
 }
